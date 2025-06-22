@@ -19,7 +19,7 @@ const Login: React.FC = () => {
     >
       <div className="form-container sign-up-container">
         <form action="#">
-          <h1>Create Account</h1>
+          <h1>Crea una cuenta</h1>
           <span></span>
           <input type="text" placeholder="Name" />
           <input type="email" placeholder="Email" />
@@ -30,31 +30,24 @@ const Login: React.FC = () => {
 
       <div className="form-container sign-in-container">
         <form action="#">
-          <h1>Sign in</h1>
+          <h1>Login</h1>
           <span></span>
           <input type="email" placeholder="Email" />
           <input type="password" placeholder="Password" />
-          <a href="#" className="forgot-password">
-            Forgot your password?
-          </a>
-          <button type="button">Sign In</button>
+          <button type="button">Iniciar Sesión</button>
         </form>
       </div>
 
       <div className="overlay-container">
         <div className="overlay">
           <div className="overlay-panel overlay-left">
-            <h1>Welcome Back!</h1>
-            <p>
-              To keep connected with us please login with your personal info
-            </p>
+            <h1>Bienvenido de Vuelta!</h1>
             <button className="ghost" onClick={handleSignInClick}>
-              Sign In
+              Iniciar Sesión
             </button>
           </div>
           <div className="overlay-panel overlay-right">
-            <h1>Hello, Friend!</h1>
-            <p>Enter your personal details and start your journey with us</p>
+            <h1>Crea una cuenta!</h1>
             <button className="ghost" onClick={handleSignUpClick}>
               Sign Up
             </button>
