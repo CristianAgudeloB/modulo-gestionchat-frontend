@@ -1,4 +1,4 @@
-const { executeQuery } = require('../config/db');
+const { executeQuery } = require('../config/database.connect');
 
 class Message {
   static async create(messageData) {

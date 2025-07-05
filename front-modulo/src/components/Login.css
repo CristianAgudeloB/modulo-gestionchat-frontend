@@ -14,15 +14,13 @@ body {
   font-family: "Montserrat", sans-serif;
   height: 100vh;
   margin: -20px 0 50px;
+  overflow: auto; /* Permitir scroll si es necesario */
 }
 
 h1 {
   font-weight: bold;
   margin: 0;
-}
-
-h2 {
-  text-align: center;
+  font-size: 24px; /* Tamaño de fuente ligeramente reducido */
 }
 
 p {
@@ -30,21 +28,9 @@ p {
   font-weight: 100;
   line-height: 20px;
   letter-spacing: 0.5px;
-  margin: 20px 0 30px;
+  margin: 15px 0 20px; /* Menor margen */
 }
 
-span {
-  font-size: 12px;
-}
-
-a {
-  color: #333;
-  font-size: 14px;
-  text-decoration: none;
-  margin: 15px 0;
-}
-
-/* --- CAMBIO DE COLOR --- */
 button {
   border-radius: 20px;
   border: 1px solid #f69c1e;
@@ -52,19 +38,16 @@ button {
   color: #ffffff;
   font-size: 12px;
   font-weight: bold;
-  padding: 12px 45px;
+  padding: 10px 35px; /* Padding reducido */
   letter-spacing: 1px;
   text-transform: uppercase;
   transition: transform 80ms ease-in;
   cursor: pointer;
+  margin-top: 10px; /* Espacio adicional */
 }
 
 button:active {
   transform: scale(0.95);
-}
-
-button:focus {
-  outline: none;
 }
 
 button.ghost {
@@ -78,37 +61,42 @@ form {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  padding: 0 50px;
+  padding: 0 40px 20px; /* Padding inferior añadido */
   height: 100%;
   text-align: center;
+  overflow-y: auto; /* Permitir scroll vertical */
 }
 
-input {
+input, .custom-select {
   background-color: #eee;
   border: none;
-  padding: 12px 15px;
-  margin: 8px 0;
+  padding: 10px 12px; /* Padding reducido */
+  margin: 6px 0; /* Margen reducido */
   width: 100%;
+  font-size: 14px; /* Tamaño de fuente ligeramente reducido */
 }
 
-/* Contenedor Principal */
+/* Contenedor Principal - Aumentado en altura */
 .container {
   background-color: #fff;
   border-radius: 10px;
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.25), 0 10px 10px rgba(0, 0, 0, 0.22);
   position: relative;
   overflow: hidden;
-  width: 768px;
-  max-width: 100%;
-  min-height: 480px;
+  width: 800px; /* Ancho aumentado */
+  max-width: 95%; /* Más flexible en pantallas pequeñas */
+  min-height: 580px; /* Altura aumentada */
+  max-height: 90vh; /* Altura máxima para pantallas pequeñas */
 }
 
-/* Contenedores de Formularios (Sign In y Sign Up) */
+/* Contenedores de Formularios */
 .form-container {
   position: absolute;
   top: 0;
   height: 100%;
   transition: all 0.6s ease-in-out;
+  overflow-y: auto; /* Permitir scroll vertical */
+  padding: 20px 0; /* Padding vertical añadido */
 }
 
 .sign-in-container {
@@ -136,12 +124,8 @@ input {
   z-index: 100;
 }
 
-/* --- CAMBIO DE COLOR --- */
 .overlay {
-  background: #f69c1e; /* Color principal sólido */
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: 0 0;
+  background: #f69c1e;
   color: #ffffff;
   position: relative;
   left: -100%;
@@ -157,7 +141,7 @@ input {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  padding: 0 40px;
+  padding: 0 30px; /* Padding reducido */
   text-align: center;
   top: 0;
   height: 100%;
@@ -175,8 +159,76 @@ input {
   transform: translateX(-20%);
 }
 
-/* --- ANIMACIÓN (sin cambios) --- */
+.error-message {
+  color: #ff3860;
+  background-color: #ffeef0;
+  padding: 8px;
+  border-radius: 5px;
+  margin: 0 0 10px 0; /* Margen ajustado */
+  text-align: center;
+  font-size: 13px;
+  border: 1px solid #ff3860;
+  width: 100%;
+}
 
+/* --- ESTILO PARA EL DESPLEGABLE --- */
+.select-container {
+  position: relative;
+  width: 100%;
+  margin: 6px 0; /* Margen reducido */
+}
+
+.custom-select {
+  padding: 10px 12px; /* Padding reducido */
+  padding-right: 35px; /* Espacio para flecha reducido */
+  cursor: pointer;
+}
+
+.select-arrow {
+  right: 10px; /* Posición ajustada */
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 850px) {
+  .container {
+    width: 95%;
+    min-height: 500px;
+    flex-direction: column;
+  }
+  
+  .form-container {
+    width: 100%;
+    height: auto;
+    position: relative;
+  }
+  
+  .overlay-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    left: 0;
+  }
+  
+  .overlay {
+    width: 100%;
+    left: 0;
+    height: 200px;
+  }
+  
+  .overlay-panel {
+    position: absolute;
+    width: 50%;
+    height: 100%;
+    padding: 0 20px;
+  }
+  
+  button.ghost {
+    padding: 8px 25px;
+    font-size: 11px;
+  }
+}
+
+/* Animaciones */
 .container.right-panel-active .sign-in-container {
   transform: translateX(100%);
 }
@@ -193,14 +245,11 @@ input {
 }
 
 @keyframes show {
-  0%,
-  49.99% {
+  0%, 49.99% {
     opacity: 0;
     z-index: 1;
   }
-
-  50%,
-  100% {
+  50%, 100% {
     opacity: 1;
     z-index: 5;
   }

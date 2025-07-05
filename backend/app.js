@@ -1,122 +1,110 @@
-// app.js (versión consolidada)
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const { abrirConexion, cerrarConexion } = require('../backend/config/database.connect');
-const authRouter = require('./routes/auth');
-const messagesRouter = require('./routes/messages');
 const http = require('http');
-
+const socketIo = require('socket.io');
+const { abrirConexion, cerrarConexion } = require('./config/database.connect');
+const authRouter = require('./routes/auth');
+const messagesRouter = require('./routes/message');
+const ubicacionRouter = require('./routes/ubicacion');
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Rutas principales
-app.use('/api/auth', authRouter);
-app.use('/api/messages', messagesRouter);
-
-// ===== Mover estos endpoints desde server.js =====
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Servidor funcionando correctamente',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Test database connection endpoint
-app.get('/api/test-connection', async (req, res) => {
-  try {
-    const connection = await abrirConexion();
-    res.json({ 
-      success: true, 
-      message: 'Conexión a la base de datos exitosa',
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error testing connection:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error al conectar con la base de datos',
-      error: error.message 
-    });
+const server = http.createServer(app);
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.CORS_ORIGIN || '*',
+    methods: ['GET', 'POST']
   }
 });
 
-// Test query endpoint
-app.get('/api/test-query', async (req, res) => {
+(async () => {
   try {
-    const connection = await abrirConexion();
-    const result = await connection.execute('SELECT 1 as test FROM DUAL');
-    res.json({ 
-      success: true, 
-      message: 'Query de prueba ejecutada correctamente',
-      data: result.rows[0],
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('Error executing test query:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Error al ejecutar query de prueba',
-      error: error.message 
-    });
+    await abrirConexion();
+    console.log('✅ Conexión a la base de datos establecida');
+  } catch (err) {
+    console.error('❌ Error al conectar con la base de datos:', err);
+    process.exit(1);
   }
-});
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Servidor de gestión de chat',
-    endpoints: {
-      auth: '/api/auth',
-      messages: '/api/messages',
-      health: '/api/health',
-      testConnection: '/api/test-connection',
-      testQuery: '/api/test-query'
+  app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+  app.use(express.json());
+
+  app.use('/api/auth', authRouter);
+  app.use('/api/messages', messagesRouter);
+  app.use('/api/ubicaciones', ubicacionRouter);
+
+  app.get('/api/health', (req, res) =>
+    res.json({ status: 'OK', message: 'Servidor funcionando correctamente', timestamp: new Date().toISOString() })
+  );
+
+  app.get('/api/test-connection', async (req, res) => {
+    try {
+      await abrirConexion();
+      res.json({ success: true, message: 'Conexión a la base de datos exitosa', timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      res.status(500).json({ success: false, message: 'Error al conectar con la base de datos', error: error.message });
     }
   });
-});
-// ===== Fin de sección movida desde server.js =====
 
-// Configuración de WebSocket (existente en app.js)
-const server = http.createServer(app);
-const io = require('socket.io')(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
+  app.get('/api/test-query', async (req, res) => {
+    try {
+      const connection = await abrirConexion();
+      const result = await connection.execute('SELECT 1 AS test FROM DUAL');
+      res.json({ success: true, message: 'Query de prueba ejecutada correctamente', data: result.rows[0], timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('Error executing test query:', error);
+      res.status(500).json({ success: false, message: 'Error al ejecutar query de prueba', error: error.message });
+    }
+  });
 
-// ... (configuración de WebSocket existente)
+  app.get('/', (req, res) =>
+    res.json({
+      message: 'Servidor de gestión de chat',
+      endpoints: {
+        auth: '/api/auth',
+        messages: '/api/messages',
+        health: '/api/health',
+        testConnection: '/api/test-connection',
+        testQuery: '/api/test-query'
+      }
+    })
+  );
 
-// ===== Mover el graceful shutdown desde server.js =====
-// Graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🛑 Cerrando servidor...');
-  await cerrarConexion();
-  process.exit(0);
-});
+  io.on('connection', (socket) => {
+    console.log(`🔌 Cliente conectado (${socket.id})`);
 
-process.on('SIGTERM', async () => {
-  console.log('\n🛑 Cerrando servidor...');
-  await cerrarConexion();
-  process.exit(0);
-});
-// ===== Fin de sección movida =====
+    socket.on('sendMessage', async (msg) => {
+      io.emit('receiveMessage', msg);
+      try {
+        const connection = await abrirConexion();
+        await connection.execute(
+          'INSERT INTO messages (user_id, content, created_at) VALUES (:user, :text, SYSTIMESTAMP)',
+          { user: msg.userId, text: msg.text },
+          { autoCommit: true }
+        );
+      } catch (err) {
+        console.error('Error guardando mensaje:', err);
+      }
+    });
 
-// Iniciar servidor (usando server en lugar de app para WebSocket)
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
-  console.log(`📊 Endpoints disponibles:`);
-  console.log(`   - GET /`);
-  console.log(`   - GET /api/health`);
-  console.log(`   - GET /api/test-connection`);
-  console.log(`   - GET /api/test-query`);
-  console.log(`   - POST /api/auth/login`);
-  console.log(`   - POST /api/auth/register`);
-  console.log(`   - WebSocket /`);
-});
+    socket.on('disconnect', (reason) => {
+      console.log(`❌ Cliente desconectado (${socket.id}): ${reason}`);
+    });
+  });
+
+  const PORT = process.env.PORT || 3000;
+  server.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  });
+})();
+
+const shutdown = async () => {
+  console.log('🛑 Cerrando servidor...');
+  server.close(async () => {
+    await cerrarConexion();
+    process.exit(0);
+  });
+};
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);

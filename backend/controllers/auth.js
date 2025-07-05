@@ -1,117 +1,136 @@
+const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const authConfig = require('../config/auth');
+const { abrirConexion } = require('../config/database.connect');
+const { v4: uuidv4 } = require('uuid');
 
-class AuthController {
-  async login(req, res) {
+module.exports = {
+  login: async (req, res) => {
     try {
       const { email, password } = req.body;
+      const connection = await abrirConexion();
       
-      // Validar entrada
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email y contraseña son requeridos' });
-      }
-
-      // Buscar usuario y verificar credenciales
-      const user = await User.findByCredentials(email, password);
-      
-      // Crear token JWT
-      const token = jwt.sign(
-        { userId: user.CONSECUSER },
-        authConfig.secret,
-        { expiresIn: authConfig.expiresIn }
+      const result = await connection.execute(
+        `SELECT * FROM USUARIO WHERE EMAIL = :email`,
+        [email],
+        { outFormat: require('oracledb').OBJECT }
       );
       
-      // Omitir datos sensibles en la respuesta
-      const userData = {
-        id: user.CONSECUSER,
-        username: user.USUARIO,
-        email: user.EMAIL,
-        theme: user.TEMAUSER,
-        avatar: user.IMAGEUSER
-      };
+      if (result.rows.length === 0) {
+        return res.status(401).json({ message: 'Credenciales inválidas' });
+      }
+      
+      const user = result.rows[0];
+    
 
-      res.json({ user: userData, token });
+      if (!user.PASSWORD) {
+        console.error('Contraseña no encontrada en:', user);
+        return res.status(500).json({ message: 'Error en la base de datos: contraseña no encontrada' });
+      }
+      
+      const isValid = await bcrypt.compare(password, user.PASSWORD);
+      
+      if (!isValid) {
+        return res.status(401).json({ message: 'Credenciales inválidas' });
+      }
+      
+      // Generar token
+      const token = jwt.sign(
+        { 
+          consecuser: user.CONSECUSER,
+          nombre: user.NOMBRE,
+          apellido: user.APELLIDO,
+          email: user.EMAIL,
+          ubicacion: user.CODUBICA
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      res.json({ token });
     } catch (error) {
       console.error('Error en login:', error);
-      res.status(401).json({ error: error.message || 'Error en la autenticación' });
+      res.status(500).json({ message: 'Error en el servidor' });
     }
-  }
+  },
 
-  async register(req, res) {
+  signup: async (req, res) => {
     try {
-      const { nombre, apellido, email, password, usuario } = req.body;
+      const { firstName, lastName, username, email, phone, password, ubicacion } = req.body;
+      const connection = await abrirConexion();
       
-      // Validar entrada
-      if (!nombre || !apellido || !email || !password || !usuario) {
-        return res.status(400).json({ error: 'Todos los campos son requeridos' });
-      }
-
-      // Verificar si el email ya existe
-      const emailExists = await User.findByEmail(email);
-      if (emailExists) {
-        return res.status(400).json({ error: 'El email ya está registrado' });
-      }
-
-      // Crear nuevo usuario
-      const userId = await User.create({
-        nombre,
-        apellido,
-        email,
-        password,
-        usuario
-      });
-
-      // Obtener datos del usuario recién creado
-      const user = await User.findById(userId);
-
-      // Crear token JWT
-      const token = jwt.sign(
-        { userId: user.CONSECUSER },
-        authConfig.secret,
-        { expiresIn: authConfig.expiresIn }
+      // Usar formato de objeto para todas las consultas
+      const options = { outFormat: require('oracledb').OBJECT };
+      
+      const emailCheck = await connection.execute(
+        `SELECT * FROM USUARIO WHERE EMAIL = :email`,
+        [email],
+        options
       );
       
-      // Omitir datos sensibles en la respuesta
-      const userData = {
-        id: user.CONSECUSER,
-        username: user.USUARIO,
-        email: user.EMAIL,
-        theme: user.TEMAUSER,
-        avatar: user.IMAGEUSER
-      };
-
-      res.status(201).json({ user: userData, token });
-    } catch (error) {
-      console.error('Error en registro:', error);
-      res.status(500).json({ error: 'Error al registrar el usuario' });
-    }
-  }
-
-  async getUserData(req, res) {
-    try {
-      // El middleware de autenticación ya verificó el token y añadió userId a req
-      const user = await User.findById(req.userId);
-      
-      if (!user) {
-        return res.status(404).json({ error: 'Usuario no encontrado' });
+      if (emailCheck.rows.length > 0) {
+        return res.status(400).json({ message: 'El email ya está registrado' });
       }
 
-      // Omitir datos sensibles en la respuesta
-      const userData = {
-        id: user.CONSECUSER,
-        username: user.USUARIO,
-        email: user.EMAIL,
-        theme: user.TEMAUSER,
-        avatar: user.IMAGEUSER
-      };
+      const usernameCheck = await connection.execute(
+        `SELECT * FROM USUARIO WHERE NOMBRE_USUARIO = :username`,
+        [username],
+        options
+      );
+      
+      if (usernameCheck.rows.length > 0) {
+        return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
+      }
+      
+      const ubicacionCheck = await connection.execute(
+        `SELECT * FROM UBICACION WHERE CODUBICA = :ubicacion`,
+        [ubicacion],
+        options
+      );
+      
+      if (ubicacionCheck.rows.length === 0) {
+        return res.status(400).json({ message: 'La ubicación seleccionada no es válida' });
+      }
 
-      res.json(userData);
+      const consecuser = uuidv4().substring(0, 5).toUpperCase();
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      await connection.execute(
+        `INSERT INTO USUARIO (
+          CONSECUSER, CODUBICA, NOMBRE, APELLIDO, NOMBRE_USUARIO, 
+          FECHAREGISTRO, EMAIL, CELULAR, PASSWORD
+        ) VALUES (
+          :consecuser, :ubicacion, :firstName, :lastName, :username,
+          SYSDATE, :email, :phone, :password
+        )`,
+        {
+          consecuser,
+          ubicacion,
+          firstName,
+          lastName,
+          username,
+          email,
+          phone,
+          password: hashedPassword
+        },
+        { autoCommit: true }
+      );
+      
+      const token = jwt.sign(
+        { 
+          consecuser,
+          nombre: firstName,
+          apellido: lastName,
+          email,
+          ubicacion
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '1h' }
+      );
+      
+      res.status(201).json({ token });
     } catch (error) {
-      console.error('Error al obtener datos de usuario:', error);
-      res.status(500).json({ error: 'Error al obtener datos de usuario' });
+      console.error('Error en signup:', error);
+      res.status(500).json({ message: 'Error en el servidor' });
     }
   }
-}
-
-module.exports = new AuthController();
+};
