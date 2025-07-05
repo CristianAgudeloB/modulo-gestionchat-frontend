@@ -1,9 +1,26 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {authService} from "../services/authService"; // Asegúrate de que la ruta sea correcta
 import "./Login.css"; // Asegúrate de que la ruta sea correcta
 
 const Login: React.FC = () => {
   const [isSignUpActive, setIsSignUpActive] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+   const navigate = useNavigate();
 
+  const handleLogin = async () => {
+    try {
+      const { user, token } = await authService.login(email, password);
+      // Guardar token y datos de usuario en el estado/contexto/localStorage
+      localStorage.setItem('token', token);
+      // Redirigir al dashboard
+      navigate('/chats');
+    } catch (error) {
+      // Mostrar error al usuario
+      alert(error);
+    }
+  };
   const handleSignUpClick = () => {
     setIsSignUpActive(true);
   };

@@ -1,6 +1,6 @@
 require('dotenv').config();
 const oracledb = require('oracledb');
-const config = require('./config');
+const config = require('../config');
 
 oracledb.initOracleClient({ libDir: config.ORACLE_CLIENT });
 
