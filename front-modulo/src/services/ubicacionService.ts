@@ -1,7 +1,19 @@
 const API_URL = 'http://localhost:3000/api';
 
+interface UbicacionRaw {
+  CODUBICA?: string;
+  codubica?: string;
+  NOMUBICA?: string;
+  nomubica?: string;
+}
+
+interface Ubicacion {
+  CODUBICA: string;
+  NOMUBICA: string;
+}
+
 export const ubicacionService = {
-  getUbicaciones: async () => {
+  getUbicaciones: async (): Promise<Ubicacion[]> => {
     try {
       const response = await fetch(`${API_URL}/ubicaciones`);
       if (!response.ok) {
@@ -16,7 +28,7 @@ export const ubicacionService = {
       
       // Filtrar y transformar datos
       return data
-        .map((ubic: any) => ({
+        .map((ubic: UbicacionRaw) => ({
           CODUBICA: (ubic.CODUBICA || ubic.codubica || '').toString(),
           NOMUBICA: (ubic.NOMUBICA || ubic.nomubica || '').toString()
         }))

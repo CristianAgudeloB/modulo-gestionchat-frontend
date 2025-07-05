@@ -10,7 +10,12 @@ interface Chat {
   avatar: string;
 }
 
-const ChatList: React.FC = () => {
+interface ChatListProps {
+  onSelectChat: (chatId: number) => void;
+  selectedChatId: number;
+}
+
+const ChatList: React.FC<ChatListProps> = ({ onSelectChat, selectedChatId }) => {
   // Datos de ejemplo para los chats
   const chats: Chat[] = [
     {
@@ -68,7 +73,11 @@ const ChatList: React.FC = () => {
 
       <div className="chats-container">
         {chats.map((chat) => (
-          <div key={chat.id} className="chat-item">
+          <div
+            key={chat.id}
+            className={`chat-item${selectedChatId === chat.id ? " selected" : ""}`}
+            onClick={() => onSelectChat(chat.id)}
+          >
             <div className="avatar">{chat.avatar}</div>
             <div className="chat-content">
               <div className="chat-header">

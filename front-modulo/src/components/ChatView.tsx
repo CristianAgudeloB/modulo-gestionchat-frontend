@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./ChatView.css";
 
 interface Message {
@@ -8,35 +8,19 @@ interface Message {
   time: string;
 }
 
-const ChatView: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 1,
-      text: "Hola, ¿cómo estás?",
-      sender: "them",
-      time: "10:30 AM",
-    },
-    {
-      id: 2,
-      text: "¡Hola! Bien, ¿y tú?",
-      sender: "me",
-      time: "10:32 AM",
-    },
-    {
-      id: 3,
-      text: "Todo bien por aquí. ¿Ya revisaste el documento que te envié?",
-      sender: "them",
-      time: "10:33 AM",
-    },
-    {
-      id: 4,
-      text: "Sí, lo revisé ayer por la noche. Tengo algunas observaciones que podemos discutir.",
-      sender: "me",
-      time: "10:35 AM",
-    },
-  ]);
+interface ChatViewProps {
+  chatName: string;
+  avatar: string;
+  messages: Message[];
+}
 
+const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages }) => {
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState("");
+
+  useEffect(() => {
+    setMessages(initialMessages);
+  }, [initialMessages]);
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
@@ -63,9 +47,9 @@ const ChatView: React.FC = () => {
     <div className="chat-view-container">
       <div className="chat-header">
         <div className="chat-contact">
-          <div className="avatar">JP</div>
+          <div className="avatar">{avatar}</div>
           <div className="contact-info">
-            <h2>Juan Pérez</h2>
+            <h2>{chatName}</h2>
             <p>En línea</p>
           </div>
         </div>

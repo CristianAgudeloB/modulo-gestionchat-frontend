@@ -40,8 +40,8 @@ const Login: React.FC = () => {
       const { token } = await authService.login(email, password);
       localStorage.setItem('token', token);
       navigate('/chats');
-    } catch (error: any) {
-      setError(error.message || "Error en el inicio de sesión");
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Error en el inicio de sesión");
     }
   };
 
@@ -61,8 +61,8 @@ const Login: React.FC = () => {
       const { token } = await authService.signup(signupData);
       localStorage.setItem('token', token);
       navigate('/chats');
-    } catch (error: any) {
-      setError(error.message || "Error en el registro");
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Error en el registro");
     }
   };
 
