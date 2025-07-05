@@ -13,64 +13,28 @@ interface Chat {
 interface ChatListProps {
   onSelectChat: (chatId: number) => void;
   selectedChatId: number;
+  chats: Chat[];
+  loggedUser?: string;
+  currentTime?: string;
+  currentDate?: string;
+  showNewChatButton?: boolean;
 }
 
-const ChatList: React.FC<ChatListProps> = ({ onSelectChat, selectedChatId }) => {
-  // Datos de ejemplo para los chats
-  const chats: Chat[] = [
-    {
-      id: 1,
-      name: "Juan Pérez",
-      lastMessage: "Hola, ¿cómo estás?",
-      time: "10:30 AM",
-      unread: 2,
-      avatar: "JP",
-    },
-    {
-      id: 2,
-      name: "Grupo de Trabajo",
-      lastMessage: "María: Revisen el documento",
-      time: "Ayer",
-      unread: 0,
-      avatar: "GT",
-    },
-    {
-      id: 3,
-      name: "Ana López",
-      lastMessage: "Nos vemos mañana",
-      time: "Ayer",
-      unread: 5,
-      avatar: "AL",
-    },
-    {
-      id: 4,
-      name: "Carlos Ruiz",
-      lastMessage: "Gracias por la información",
-      time: "Lunes",
-      unread: 0,
-      avatar: "CR",
-    },
-    {
-      id: 5,
-      name: "Soporte Técnico",
-      lastMessage: "Su ticket ha sido resuelto",
-      time: "Viernes",
-      unread: 0,
-      avatar: "ST",
-    },
-  ];
-
+const ChatList: React.FC<ChatListProps> = ({ onSelectChat, selectedChatId, chats, loggedUser, currentTime, currentDate, showNewChatButton }) => {
   return (
     <div className="chat-list-container">
       <div className="chat-list-header">
         <h1>Chats</h1>
-        <button className="new-chat-button">Nuevo Chat</button>
+        {showNewChatButton && <button className="new-chat-button">Nuevo Chat</button>}
       </div>
-
+      <div className="chat-user-info">
+        <span className="user-name">{loggedUser || "Usuario"}</span>
+        <span className="user-time">{currentTime || "--:--"}</span>
+        <span className="user-date">{currentDate || "--/--/----"}</span>
+      </div>
       <div className="search-container">
         <input type="text" placeholder="Buscar chats..." />
       </div>
-
       <div className="chats-container">
         {chats.map((chat) => (
           <div

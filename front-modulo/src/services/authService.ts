@@ -1,3 +1,5 @@
+import { jwtDecode } from "jwt-decode";
+
 const API_URL = 'http://localhost:3000/api/auth';
 
 export const authService = {
@@ -35,5 +37,19 @@ export const authService = {
       throw new Error(error.message);
     }
     return response.json();
+  },
+
+  getLoggedUser: () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      const decoded = jwtDecode<{ nombre?: string; apellido?: string; email?: string }>(token);
+      if (decoded.nombre && decoded.apellido) {
+        return decoded.nombre + ' ' + decoded.apellido;
+      }
+      return decoded.nombre || decoded.apellido || decoded.email || null;
+    } catch {
+      return null;
+    }
   }
 };

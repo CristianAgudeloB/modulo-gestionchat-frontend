@@ -3,6 +3,7 @@
     "axios": "^1.10.0",
     "bcryptjs": "^3.0.2",
     "jsonwebtoken": "^9.0.2",
+    "jwt-decode": "^4.0.0",
     "reach": "^1.0.1",
     "react-router-dom": "^7.6.2",
     "router": "^2.2.0"

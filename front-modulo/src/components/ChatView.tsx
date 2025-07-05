@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "./ChatView.css";
 
 interface Message {
@@ -17,10 +17,20 @@ interface ChatViewProps {
 const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
   }, [initialMessages]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
@@ -44,7 +54,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
   };
 
   return (
-    <div className="chat-view-container">
+    <div className="chat-view-container" style={{ width: '100%', margin: 0, padding: 0 }}>
       <div className="chat-header">
         <div className="chat-contact">
           <div className="avatar">{avatar}</div>
@@ -57,17 +67,22 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
       </div>
 
       <div className="messages-container">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`message ${message.sender === "me" ? "sent" : "received"}`}
-          >
-            <div className="message-content">
-              <p>{message.text}</p>
-              <span className="message-time">{message.time}</span>
+        {messages.length === 0 ? (
+          <div className="no-messages-placeholder">No hay mensajes en este chat. ¡Envía el primero!</div>
+        ) : (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className={`message ${message.sender === "me" ? "sent" : "received"}`}
+            >
+              <div className="message-content">
+                <p>{message.text}</p>
+                <span className="message-time">{message.time}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="message-input-container">

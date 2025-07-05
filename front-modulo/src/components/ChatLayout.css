@@ -1,7 +1,11 @@
 .chat-layout-container {
   display: flex;
   height: 100vh;
-  background: #181818;
+  width: 100vw;
+  background: #fad58c;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
 .chat-list-panel {
@@ -10,10 +14,15 @@
   max-width: 420px;
   background: #222e35;
   border-right: 3px solid #f69c1e;
-  height: 100vh;
-  overflow-y: auto;
+  height: calc(100vh - 20px);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  margin: 20px 0 0 12px;
+  padding: 0;
+  border-radius: 12px 0 0 12px;
+  box-sizing: border-box;
 }
 
 .chat-view-panel {
@@ -24,5 +33,9 @@
   min-height: 0;
   width: 100%;
   max-width: none;
-  margin: 0;
+  margin: 20px 12px 0 0;
+  overflow: hidden;
+  padding: 0;
+  border-radius: 0 12px 12px 0;
+  box-sizing: border-box;
 } 
