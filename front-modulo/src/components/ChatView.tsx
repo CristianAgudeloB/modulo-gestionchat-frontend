@@ -12,13 +12,16 @@ interface ChatViewProps {
   chatName: string;
   avatar: string;
   messages: Message[];
-  onSendMessage?: (text: string) => void;
+  onSendMessage?: (text: string) => void,
+  onLogout?: () => void;
 }
 
-const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages, onSendMessage }) => {
+const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages, onSendMessage,onLogout }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
@@ -28,6 +31,18 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,6 +71,17 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
       handleSendMessage();
     }
   };
+  const toggleMenu = () => {
+    setShowMenu(!showMenu);
+  };
+
+  const handleLogout = () => {
+    if (onLogout) {
+      onLogout();
+    }
+    setShowMenu(false);
+    window.location.href = "/login";
+  };
 
   return (
     <div className="chat-view-container" style={{ width: '100%', margin: 0, padding: 0 }}>
@@ -63,11 +89,27 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
         <div className="chat-contact">
           <div className="avatar">{avatar}</div>
           <div className="contact-info">
-            <h2>{chatName}</h2>
-            <p>En línea</p>
+        <h2>{chatName}</h2>
+        <p>En línea</p>
           </div>
         </div>
-        <button className="more-options">⋮</button>
+        <div className="logout-menu-container" ref={menuRef} style={{ position: "relative" }}>
+          <button
+        className="logout-menu-btn"
+        onClick={toggleMenu}
+          >⁝</button>
+          {showMenu && (
+        <div
+          className="dropdown-menu">
+          <button
+            className="logout-button"
+            onClick={handleLogout}
+          >
+            cerrar sesión
+          </button>
+        </div>
+          )}
+        </div>
       </div>
 
       <div className="messages-container">
