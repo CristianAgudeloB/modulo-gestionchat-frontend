@@ -72,6 +72,7 @@ class ApiService {
     if (!response.ok) throw new Error('Error al obtener los mensajes de grupo');
     return response.json();
   }
+  
 
   // Enviar mensaje (crear mensaje)
   async createMessage({ senderId, receiverId, groupId, content }: { senderId: string; receiverId?: string; groupId?: string; content: string; }) {

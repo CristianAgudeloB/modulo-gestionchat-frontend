@@ -65,6 +65,12 @@ useEffect(() => {
     }
   };
 
+  const handleAjduntFile = () => {
+    // Esta función se puede usar para adjuntar archivos
+
+    // Aquí puedes implementar la lógica para adjuntar archivos
+    alert("Funcionalidad de adjuntar archivos aún no implementada.");
+  };
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -103,8 +109,7 @@ useEffect(() => {
           className="dropdown-menu">
           <button
             className="logout-button"
-            onClick={handleLogout}
-          >
+            onClick={handleLogout}>
             cerrar sesión
           </button>
         </div>
@@ -112,23 +117,25 @@ useEffect(() => {
         </div>
       </div>
 
-      <div className="messages-container">
+      <div className="messages-container" style={{ display: "flex", flexDirection: "column-reverse" }}>
+        <div ref={messagesEndRef} />
         {messages.length === 0 ? (
           <div className="no-messages-placeholder">No hay mensajes en este chat. ¡Envía el primero!</div>
         ) : (
-          messages.filter(message => message.text !== '[Mensaje sin texto]').map((message) => (
-            <div
-              key={message.id}
-              className={`message ${message.sender === "me" ? "sent" : "received"}`}
-            >
-              <div className="message-content">
-                <p>{message.text}</p>
-                <span className="message-time">{message.time}</span>
-              </div>
+          messages
+        .filter(message => message.text !== '[Mensaje sin texto]')
+        .map((message) => (
+          <div
+            key={message.id}
+            className={`message ${message.sender === "me" ? "sent" : "received"}`}
+          >
+            <div className="message-content">
+          <p>{message.text}</p>
+          <span className="message-time">{message.time}</span>
             </div>
-          ))
+          </div>
+        ))
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="message-input-container">
@@ -139,6 +146,22 @@ useEffect(() => {
           onChange={(e) => setNewMessage(e.target.value)}
           onKeyPress={handleKeyPress}
         />
+        <button onClick={handleAjduntFile}>
+              <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24px"
+              height="24px"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#ffffff"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              >
+              <path d="M21.44 11.05l-8.49 8.49a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 014.24 4.24l-9.19 9.19a1 1 0 01-1.41-1.41l8.49-8.49" />
+              </svg>
+        </button>
+        
         <button onClick={handleSendMessage}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
