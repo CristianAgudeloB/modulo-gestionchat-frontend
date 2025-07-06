@@ -106,6 +106,7 @@ body {
   position: relative;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  padding-bottom: 8px;
 }
 
 .message-content p {
@@ -290,4 +291,171 @@ body {
 
 .remove-file-btn:hover {
   color: #333;
+}
+
+/* Estilos para archivos adjuntos */
+.file-attachment {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
+}
+
+.attached-image {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 10px;
+  margin: 0 auto;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.attached-video {
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: 10px;
+  margin: 0 auto;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.attached-audio {
+  width: 100%;
+  max-width: 340px;
+  margin: 0 auto;
+  display: block;
+}
+
+.attached-document {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin: 0 auto;
+}
+
+.attached-document svg {
+  color: #6c757d;
+  flex-shrink: 0;
+}
+
+.attached-document span {
+  flex: 1;
+  font-size: 14px;
+  color: #495057;
+  word-break: break-word;
+}
+
+.download-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.download-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.download-btn:active {
+  transform: translateY(0);
+}
+
+/* Estilos para mensajes recibidos con archivos */
+.received .attached-document {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.received .attached-document svg,
+.received .attached-document span {
+  color: #333;
+}
+
+.received .download-btn {
+  background-color: rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.2);
+  color: #333;
+}
+
+.received .download-btn:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+}
+
+/* Mejoras para la visualización de archivos multimedia */
+.attached-image,
+.attached-video,
+.attached-audio {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Estilos para mensajes con archivos */
+.message.sent .file-attachment {
+  background-color: #e3f2fd;
+  border-color: #bbdefb;
+}
+
+.message.received .file-attachment {
+  background-color: #f5f5f5;
+  border-color: #e0e0e0;
+}
+
+/* Responsive para archivos */
+@media (max-width: 768px) {
+  .attached-image {
+    max-width: 180px;
+    max-height: 120px;
+  }
+  .attached-video {
+    max-width: 200px;
+    max-height: 120px;
+  }
+  .attached-audio {
+    max-width: 200px;
+  }
+  .attached-document {
+    padding: 10px;
+    gap: 6px;
+  }
+}
+
+.message-content.media-only {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.message.sent .message-content.media-only,
+.message.received .message-content.media-only {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.file-attachment {
+  margin: 0 auto;
 }

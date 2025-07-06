@@ -40,8 +40,21 @@ async function cerrarConexion() {
 
 async function executeQuery(sql, binds = {}, options = {}) {
   const conn = await abrirConexion();
+  // Convertir buffers a BLOBs
+  const processedBinds = {};
+  for (const key in binds) {
+    if (Buffer.isBuffer(binds[key])) {
+      processedBinds[key] = { type: oracledb.BLOB, val: binds[key] };
+    } else {
+      processedBinds[key] = binds[key];
+    }
+  }
   try {
-    const result = await conn.execute(sql, binds, { ...options, outFormat: oracledb.OUT_FORMAT_OBJECT });
+    const result = await conn.execute(
+      sql,
+      processedBinds,
+      { autoCommit: true, ...options, outFormat: oracledb.OUT_FORMAT_OBJECT }
+    );
     return result;
   } catch (err) {
     console.error('Error al ejecutar query:', err.message);

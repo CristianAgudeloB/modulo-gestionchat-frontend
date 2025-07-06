@@ -39,13 +39,14 @@ class Message {
       SELECT m.*, 
              u1.NOMBRE as NOMBRE_REMITENTE, u1.APELLIDO as APELLIDO_REMITENTE,
              u2.NOMBRE as NOMBRE_DESTINATARIO, u2.APELLIDO as APELLIDO_DESTINATARIO,
-             c.CONTENIDOIMAG, c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO,
-             tc.DESCTIPOCONTENIDO
+             c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, c.IDTIPOARCHIVO,
+             tc.DESCTIPOCONTENIDO, ta.DESCTIPOARCHIVO
       FROM MENSAJE m
       JOIN USUARIO u1 ON m.CONSECUSER = u1.CONSECUSER
       JOIN USUARIO u2 ON m.USE_CONSECUSER = u2.CONSECUSER
-      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER AND m.CONSECUSER = c.CONSECUSER AND m.CONSMENSAJE = c.CONSMENSAJE
+      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER AND m.CONSECUSER = c.CONSECUSER AND m.CONSMENSAJE = c.CONSMENSAJE AND c.CONSECCONTENIDO = 1
       LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
+      LEFT JOIN TIPOARCHIVO ta ON c.IDTIPOARCHIVO = ta.IDTIPOARCHIVO
       WHERE m.USE_CONSECUSER = :userId OR m.CONSECUSER = :userId
       ORDER BY m.FECHAREGMEN DESC
     `;
@@ -53,7 +54,8 @@ class Message {
     const result = await executeQuery(sql, { userId });
     result.rows = result.rows.map(row => ({
       ...row,
-      CONTENIDOIMAG: decodeHexToString(row.CONTENIDOIMAG)
+      hasFile: !!row.IDTIPOARCHIVO,
+      fileUrl: row.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${row.USE_CONSECUSER}/${row.CONSECUSER}/${row.CONSMENSAJE}` : null
     }));
     console.log("Mensajes enviados al frontend:", result.rows);
     return result.rows;
@@ -61,11 +63,13 @@ class Message {
 
   static async getByGroup(groupId) {
     const sql = `
-      SELECT m.*, u.NOMBRE, u.APELLIDO, c.CONTENIDOIMAG, c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, tc.DESCTIPOCONTENIDO
+      SELECT m.*, u.NOMBRE, u.APELLIDO, c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, c.IDTIPOARCHIVO,
+             tc.DESCTIPOCONTENIDO, ta.DESCTIPOARCHIVO
       FROM MENSAJE m
       JOIN USUARIO u ON m.CONSECUSER = u.CONSECUSER
-      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER AND m.CONSECUSER = c.CONSECUSER AND m.CONSMENSAJE = c.CONSMENSAJE
+      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER AND m.CONSECUSER = c.CONSECUSER AND m.CONSMENSAJE = c.CONSMENSAJE AND c.CONSECCONTENIDO = 1
       LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
+      LEFT JOIN TIPOARCHIVO ta ON c.IDTIPOARCHIVO = ta.IDTIPOARCHIVO
       WHERE m.CODGRUPO = :groupId
       ORDER BY m.FECHAREGMEN DESC
     `;
@@ -73,7 +77,8 @@ class Message {
     const result = await executeQuery(sql, { groupId });
     result.rows = result.rows.map(row => ({
       ...row,
-      CONTENIDOIMAG: decodeHexToString(row.CONTENIDOIMAG)
+      hasFile: !!row.IDTIPOARCHIVO,
+      fileUrl: row.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${row.USE_CONSECUSER}/${row.CONSECUSER}/${row.CONSMENSAJE}` : null
     }));
     console.log("Mensajes enviados al frontend (grupo):", result.rows);
     return result.rows;

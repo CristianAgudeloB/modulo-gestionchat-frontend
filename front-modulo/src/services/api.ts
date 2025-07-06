@@ -76,6 +76,13 @@ class ApiService {
   return response.json();
 }
 
+  // Obtener archivo adjunto
+  async getFile(useConsecUser: string, consecUser: string, consMensaje: number): Promise<Blob> {
+    const response = await fetch(`${API_BASE_URL}/messages/file/${useConsecUser}/${consecUser}/${consMensaje}`);
+    if (!response.ok) throw new Error('Error al obtener el archivo');
+    return response.blob();
+  }
+
 
 
   // Get all messages

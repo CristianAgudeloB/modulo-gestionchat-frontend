@@ -9,7 +9,9 @@
     "test-usuario": "node test-usuario.js",
     "insert-data": "node insert-test-data.js",
     "test-db": "node test-db-connection.js",
-    "test-contenido": "node test-contenido.js"
+    "test-contenido": "node test-contenido.js",
+    "test-files": "node test-file-upload.js",
+    "insert-mm": "node insert-mm-type.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -17,6 +19,7 @@
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.1",
     "oracledb": "^6.3.0",
     "socket.io": "^4.8.1",
     "uuid": "^11.1.0"

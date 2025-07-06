@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const messagesController = require('../controllers/message');
+const { upload } = require('../middlewares/upload');
 
-// Enviar un nuevo mensaje
-router.post('/', messagesController.sendMessage);
+// Enviar un nuevo mensaje (con o sin archivo)
+router.post('/', upload.single('file'), messagesController.sendMessage);
 
 // Obtener mensajes de un usuario (tanto enviados como recibidos)
 router.get('/user/:userId', messagesController.getUserMessages);
@@ -18,5 +19,8 @@ router.get('/thread/:messageId', messagesController.getMessageThread);
 router.get('/user/:userId/chats', messagesController.getUserChats);
 
 router.get('/user/contacts/:currentUserId', messagesController.getAllUsersExceptCurrent);
+
+// Obtener archivo adjunto a un mensaje
+router.get('/file/:useConsecUser/:consecUser/:consMensaje', messagesController.getFile);
 
 module.exports = router;

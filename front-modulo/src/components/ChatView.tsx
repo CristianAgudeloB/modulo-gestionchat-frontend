@@ -1,19 +1,22 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./ChatView.css";
-import { apiService } from "../services/api";
 
 interface Message {
   id: number;
-  text: string;
+  text?: string;
   sender: "me" | "them";
   time: string;
+  hasFile?: boolean;
+  fileUrl?: string;
+  fileType?: string;
+  fileName?: string;
 }
 
 interface ChatViewProps {
   chatName: string;
   avatar: string;
   messages: Message[];
-  onSendMessage?: (text: string) => void,
+  onSendMessage?: (text: string, file?: File) => void,
   onLogout?: () => void;
 }
 
@@ -51,41 +54,46 @@ useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = async () => {
-  if (newMessage.trim() === "" && !file) return;
-  
-  try {
-    if (onSendMessage) {
-      if (file) {
-        await apiService.sendMessageWithFile({
-          senderId: "currentUserId", // Debes obtener este ID del estado o props
-          receiverId: "receiverId", // Ajusta según tu lógica
-          content: newMessage,
-          file
-        });
-      } else {
-        onSendMessage(newMessage);
-      }
-      setNewMessage("");
-      setFile(null);
-      setPreview(null);
-    } else {
-      // Lógica local para demo
-      const newMsg: Message = {
-        id: messages.length + 1,
-        text: file ? `[Archivo: ${file.name}] ${newMessage}` : newMessage,
-        sender: "me",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages([...messages, newMsg]);
-      setNewMessage("");
-      setFile(null);
-      setPreview(null);
+  const downloadFile = async (url: string, fileName: string) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Error al descargar el archivo');
+      
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = fileName || 'archivo';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Error al descargar archivo:', error);
+      alert('Error al descargar el archivo');
     }
-  } catch (error) {
-    console.error("Error al enviar mensaje:", error);
-  }
-};
+  };
+
+  const handleSendMessage = async () => {
+    if (newMessage.trim() === "" && !file) return;
+    
+    try {
+      if (onSendMessage) {
+        // Enviar mensaje usando la función del componente padre
+        await onSendMessage(newMessage, file || undefined);
+      }
+      
+      // Limpiar el formulario
+      setNewMessage("");
+      setFile(null);
+      setPreview(null);
+    } catch (error) {
+      console.error("Error al enviar mensaje:", error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
+  };
+
+
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   if (e.target.files && e.target.files[0]) {
@@ -162,15 +170,83 @@ const removeFile = () => {
           <div className="no-messages-placeholder">No hay mensajes en este chat. ¡Envía el primero!</div>
         ) : (
           messages
-        .filter(message => message.text !== '[Mensaje sin texto]')
-        .map((message) => (
+            .filter(message => {
+              // Mostrar mensaje si tiene texto válido O si tiene archivo
+              const hasValidText = typeof message.text === 'string' && message.text.trim() !== '';
+              const hasFile = message.hasFile && message.fileUrl;
+              return hasValidText || hasFile;
+            })
+            .map((message) => (
           <div
             key={message.id}
             className={`message ${message.sender === "me" ? "sent" : "received"}`}
           >
             <div className="message-content">
-          <p>{message.text}</p>
-          <span className="message-time">{message.time}</span>
+              {/* Mostrar archivo adjunto si existe */}
+              {message.hasFile && message.fileUrl && (
+                <div className="file-attachment">
+                  {message.fileType === 'IM' ? (
+                    <img 
+                      src={message.fileUrl} 
+                      alt="Imagen adjunta" 
+                      className="attached-image"
+                      onClick={() => window.open(message.fileUrl, '_blank')}
+                      onError={(e) => {
+                        console.error('Error cargando imagen:', e);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : message.fileType === 'VD' ? (
+                    <video 
+                      controls 
+                      className="attached-video"
+                      src={message.fileUrl}
+                      onError={(e) => {
+                        console.error('Error cargando video:', e);
+                        (e.target as HTMLVideoElement).style.display = 'none';
+                      }}
+                    >
+                      Tu navegador no soporta el elemento video.
+                    </video>
+                  ) : message.fileType === 'AU' ? (
+                    <audio 
+                      controls 
+                      className="attached-audio"
+                      src={message.fileUrl}
+                      onError={(e) => {
+                        console.error('Error cargando audio:', e);
+                        (e.target as HTMLAudioElement).style.display = 'none';
+                      }}
+                    >
+                      Tu navegador no soporta el elemento audio.
+                    </audio>
+                  ) : (
+                    <div className="attached-document">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14,2 14,8 20,8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10,9 9,9 8,9"/>
+                      </svg>
+                      <span>{message.fileName || 'Documento adjunto'}</span>
+                      <button 
+                        onClick={() => downloadFile(message.fileUrl!, message.fileName || 'archivo')}
+                        className="download-btn"
+                      >
+                        Descargar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mostrar texto solo si existe y no es mensaje multimedia puro */}
+              {typeof message.text === 'string' && message.text.trim() !== '' && (!message.hasFile || (message.fileType !== 'IM' && message.fileType !== 'VD' && message.fileType !== 'AU')) && (
+                <p>{message.text}</p>
+              )}
+              
+              <span className="message-time">{message.time}</span>
             </div>
           </div>
         ))
@@ -184,6 +260,7 @@ const removeFile = () => {
         id="file-input"
         style={{ display: 'none' }}
         onChange={handleFileChange}
+        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt"
       />
       
       {/* Botón para adjuntar archivos */}
