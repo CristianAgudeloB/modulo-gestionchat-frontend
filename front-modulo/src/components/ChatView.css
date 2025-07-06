@@ -87,7 +87,7 @@ body {
     linear-gradient(90deg, #f9f9f9 1px, transparent 1px);
   background-size: 20px 20px;
   display: flex;
-  flex-direction: column;
+  flex-direction: column-reverse;
   min-height: 0;
   scroll-behavior: smooth;
   position: relative;
@@ -458,4 +458,112 @@ body {
 
 .file-attachment {
   margin: 0 auto;
+}
+
+/* ===== Barra de respuesta ===== */
+.reply-preview-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #f0f2f5;
+  padding: 8px 15px;
+  border-bottom: 1px solid #e9edef;
+}
+
+.reply-preview-content {
+  flex: 1;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-left: 3px solid #0084ff;
+}
+
+.reply-preview-content span {
+  display: block;
+  font-size: 12px;
+  color: #667781;
+  font-weight: 500;
+}
+
+.reply-preview-content p {
+  margin: 3px 0 0;
+  font-size: 14px;
+  color: #3b4a54;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ===== Vista previa en el mensaje ===== */
+.reply-preview {
+  display: flex;
+  margin-bottom: 5px;
+  padding-left: 10px;
+  border-left: 3px solid;
+}
+
+.reply-preview.me {
+  border-color: #d9fdd3;
+}
+
+.reply-preview.them {
+  border-color: #fff;
+}
+
+.reply-content {
+  margin-left: 8px;
+  flex: 1;
+}
+
+.reply-content span {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+}
+
+.reply-content p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #667781;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cancel-reply-btn {
+  background: #ffffff;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #f69c1e;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 10px;
+}
+
+.cancel-reply-btn:hover {
+  background: rgba(246, 156, 30, 0.1);
+}
+
+.reply-button {
+  position: absolute;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+  top: 6px;
+  right: 6px; 
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.message:hover .reply-button {
+  opacity: 1;
+  pointer-events: auto;
 }

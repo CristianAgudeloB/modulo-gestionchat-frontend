@@ -38,6 +38,7 @@ interface ChatGroup {
 
 type ChatType = ChatUser | ChatGroup;
 
+// Modificar la interfaz Message para soportar respuestas
 interface Message {
   id: number;
   text?: string;
@@ -47,6 +48,11 @@ interface Message {
   fileUrl?: string;
   fileType?: string;
   fileName?: string;
+  replyTo?: {
+    id: number;
+    text?: string;
+    sender: 'me' | 'them';
+  };
 }
 
 const ChatLayout: React.FC = () => {
@@ -59,6 +65,9 @@ const ChatLayout: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
+
+  // Nuevo estado para mensaje a responder
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
 
   // Función para decodificar contenido Oracle RAW/base64
   function decodeOracleRaw(raw: string | undefined): string {
@@ -76,9 +85,11 @@ const ChatLayout: React.FC = () => {
       const data: ChatType[] = await apiService.getUserChats(userId);
       setChats(data);
       if (data.length > 0) {
-        setSelectedChatId(data[0].type === 'user' 
-          ? `user-${(data[0] as ChatUser).contact.CONSECUSER}` 
-          : `group-${(data[0] as ChatGroup).group.CODGRUPO}`);
+        setSelectedChatId(
+          data[0].type === 'user'
+            ? `user-${(data[0] as ChatUser).contact.CONSECUSER}`
+            : `group-${(data[0] as ChatGroup).group.CODGRUPO}`
+        );
       }
     } catch (error) {
       setError("Error al cargar los chats");
@@ -90,42 +101,60 @@ const ChatLayout: React.FC = () => {
 
   useEffect(() => {
     loadChats();
+    // Resetear estado de respuesta al cambiar de chat
+    setReplyingTo(null);
   }, [userId]);
 
-  // Recargar mensajes
+  // Recargar mensajes (actualizado)
   const reloadMessages = async () => {
     if (!selectedChatId) return;
-    
+
     if (selectedChatId.startsWith('user-')) {
       const contactId = selectedChatId.replace('user-', '');
       const msgs: MensajeRaw[] = await apiService.getUserMessages(userId);
-      const filtered = msgs.filter((msg: MensajeRaw) =>
+      const filtered = msgs.filter((msg) =>
         (msg.CONSECUSER === userId && msg.USE_CONSECUSER === contactId) ||
         (msg.CONSECUSER === contactId && msg.USE_CONSECUSER === userId)
       );
-      setMessages(filtered.map((msg: MensajeRaw, idx: number) => ({
-        id: idx + 1,
-        text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
-        sender: msg.CONSECUSER === userId ? 'me' : 'them',
-        time: msg.FECHAREGMEN,
-        hasFile: !!msg.IDTIPOARCHIVO,
-        fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
-        fileType: msg.IDTIPOARCHIVO,
-        fileName: msg.LOCALIZACONTENIDO
-      })));
+      
+      // Ordenar mensajes cronológicamente (más antiguo primero)
+      const orderedMessages = [...filtered].sort((a, b) => 
+        new Date(a.FECHAREGMEN).getTime() - new Date(b.FECHAREGMEN).getTime()
+      );
+      
+      setMessages(orderedMessages.map((msg, idx) => {
+        return {
+          id: idx + 1,
+          text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
+          sender: msg.CONSECUSER === userId ? 'me' : 'them',
+          time: msg.FECHAREGMEN,
+          hasFile: !!msg.IDTIPOARCHIVO,
+          fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
+          fileType: msg.IDTIPOARCHIVO,
+          fileName: msg.LOCALIZACONTENIDO,
+        };
+      }));
     } else if (selectedChatId.startsWith('group-')) {
       const groupId = selectedChatId.replace('group-', '');
       const msgs: MensajeRaw[] = await apiService.getGroupMessages(groupId);
-      setMessages(msgs.map((msg: MensajeRaw, idx: number) => ({
-        id: idx + 1,
-        text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
-        sender: msg.CONSECUSER === userId ? 'me' : 'them',
-        time: msg.FECHAREGMEN,
-        hasFile: !!msg.IDTIPOARCHIVO,
-        fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
-        fileType: msg.IDTIPOARCHIVO,
-        fileName: msg.LOCALIZACONTENIDO
-      })));
+      
+      // Ordenar mensajes cronológicamente (más antiguo primero)
+      const orderedMessages = [...msgs].sort((a, b) => 
+        new Date(a.FECHAREGMEN).getTime() - new Date(b.FECHAREGMEN).getTime()
+      );
+      
+      setMessages(orderedMessages.map((msg, idx) => {
+        return {
+          id: idx + 1,
+          text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
+          sender: msg.CONSECUSER === userId ? 'me' : 'them',
+          time: msg.FECHAREGMEN,
+          hasFile: !!msg.IDTIPOARCHIVO,
+          fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
+          fileType: msg.IDTIPOARCHIVO,
+          fileName: msg.LOCALIZACONTENIDO,
+        };
+      }));
     }
   };
 
@@ -148,17 +177,17 @@ const ChatLayout: React.FC = () => {
       id = `user-${chat.contact.CONSECUSER}`;
       name = `${chat.contact.NOMBRE} ${chat.contact.APELLIDO}`;
       avatar = (chat.contact.NOMBRE[0] + chat.contact.APELLIDO[0]).toUpperCase();
-      lastMessage = chat.lastMessage.LOCALIZACONTENIDO || 
-        (chat.lastMessage.CONTENIDOIMAG ? decodeOracleRaw(chat.lastMessage.CONTENIDOIMAG) : 
-        (chat.lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]'));
+      lastMessage = chat.lastMessage.LOCALIZACONTENIDO ||
+        (chat.lastMessage.CONTENIDOIMAG ? decodeOracleRaw(chat.lastMessage.CONTENIDOIMAG) :
+          (chat.lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]'));
       time = chat.lastMessage.FECHAREGMEN;
     } else {
       id = `group-${chat.group.CODGRUPO}`;
       name = chat.group.NOMGRUPO;
-      avatar = chat.group.NOMGRUPO ? chat.group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR';
-      lastMessage = chat.lastMessage.LOCALIZACONTENIDO || 
-        (chat.lastMessage.CONTENIDOIMAG ? decodeOracleRaw(chat.lastMessage.CONTENIDOIMAG) : 
-        (chat.lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]'));
+      avatar = chat.group.NOMGRUPO ? chat.group.NOMGRUPO.slice(0, 2).toUpperCase() : 'GR';
+      lastMessage = chat.lastMessage.LOCALIZACONTENIDO ||
+        (chat.lastMessage.CONTENIDOIMAG ? decodeOracleRaw(chat.lastMessage.CONTENIDOIMAG) :
+          (chat.lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]'));
       time = chat.lastMessage.FECHAREGMEN;
     }
     return { id, name, avatar, lastMessage, time, unread: 0 };
@@ -200,10 +229,14 @@ const ChatLayout: React.FC = () => {
     }
   };
 
-  // Enviar mensaje (texto o archivo)
-  const handleSendMessage = async (text: string, file?: File) => {
+  // Enviar mensaje (actualizado para soportar respuestas)
+  const handleSendMessage = async (
+    text: string,
+    file?: File,
+    replyTo?: Message
+  ) => {
     if (!selectedChatId || (!text.trim() && !file)) return;
-    
+
     let receiverId = '';
     let groupId = '';
     if (selectedChatId.startsWith('user-')) {
@@ -211,7 +244,7 @@ const ChatLayout: React.FC = () => {
     } else if (selectedChatId.startsWith('group-')) {
       groupId = selectedChatId.replace('group-', '');
     }
-    
+
     try {
       if (file) {
         await apiService.sendMessageWithFile({
@@ -229,7 +262,30 @@ const ChatLayout: React.FC = () => {
           content: text
         });
       }
-      await reloadMessages();
+
+      // Agregar el nuevo mensaje con respuesta si existe
+      const newMessage: Message = {
+        id: messages.length + 1,
+        text: text.trim() !== '' ? text : undefined,
+        sender: 'me',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        ...(file && {
+          hasFile: true,
+          fileType: file.type.startsWith('image/') ? 'IM' :
+            file.type.startsWith('video/') ? 'VD' :
+            file.type.startsWith('audio/') ? 'AU' : 'OT',
+          fileName: file.name
+        }),
+        replyTo: replyTo ? {
+          id: replyTo.id,
+          text: replyTo.text || (replyTo.hasFile ? '[Archivo]' : '[Mensaje]'),
+          sender: replyTo.sender
+        } : undefined
+      };
+
+      // Agregar al final del array (manteniendo orden cronológico)
+      setMessages(prev => [...prev, newMessage]);
+      setReplyingTo(null);
     } catch (e) {
       console.error('Error al enviar mensaje:', e);
       throw new Error('Error al enviar el mensaje');
@@ -266,14 +322,16 @@ const ChatLayout: React.FC = () => {
       <div className="chat-view-panel">
         {selectedChat && (
           <ChatView
-            chatName={selectedChat.type === 'user' 
-              ? `${selectedChat.contact.NOMBRE} ${selectedChat.contact.APELLIDO}` 
+            chatName={selectedChat.type === 'user'
+              ? `${selectedChat.contact.NOMBRE} ${selectedChat.contact.APELLIDO}`
               : selectedChat.group.NOMGRUPO}
-            avatar={selectedChat.type === 'user' 
-              ? (selectedChat.contact.NOMBRE[0] + selectedChat.contact.APELLIDO[0]).toUpperCase() 
-              : (selectedChat.group.NOMGRUPO ? selectedChat.group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR')}
+            avatar={selectedChat.type === 'user'
+              ? (selectedChat.contact.NOMBRE[0] + selectedChat.contact.APELLIDO[0]).toUpperCase()
+              : (selectedChat.group.NOMGRUPO ? selectedChat.group.NOMGRUPO.slice(0, 2).toUpperCase() : 'GR')}
             messages={messages}
-            onSendMessage={handleSendMessage}
+            replyingTo={replyingTo}
+            setReplyingTo={setReplyingTo}
+            onSendMessage={(text, file) => handleSendMessage(text, file, replyingTo ?? undefined)}
           />
         )}
         {loadingMessages && <div>Cargando mensajes...</div>}
