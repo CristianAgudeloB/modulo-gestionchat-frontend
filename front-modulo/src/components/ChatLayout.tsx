@@ -1,3 +1,4 @@
+// ChatLayout.tsx
 import React, { useState, useEffect } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
@@ -18,6 +19,7 @@ interface MensajeRaw {
   USE_CONSECUSER: string;
   CONSMENSAJE: number;
   LOCALIZACONTENIDO?: string;
+  CONTENIDOIMAG?: string;
   IDTIPOARCHIVO?: string;
   IDTIPOCONTENIDO?: string;
   FECHAREGMEN: string;
@@ -49,10 +51,8 @@ interface Message {
 }
 
 const ChatLayout: React.FC = () => {
-  // Suponiendo que el usuario logueado tiene un id (ajusta según tu authService)
   const loggedUser = authService.getLoggedUser();
-  console.log("Usuario logueado:", loggedUser);
-  const userId: string = loggedUser?.consecuser || "1"; // Usa el campo correcto
+  const userId: string = loggedUser?.consecuser || "1";
 
   const [chats, setChats] = useState<ChatType[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -61,24 +61,76 @@ const ChatLayout: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
 
-  useEffect(() => {
+  // Función para decodificar contenido Oracle RAW/base64
+  function decodeOracleRaw(raw: string | undefined): string {
+    if (!raw) return '';
+    try {
+      return atob(raw);
+    } catch {
+      return raw;
+    }
+  }
+
+  const loadChats = async () => {
     setLoading(true);
-    apiService.getUserChats(userId)
-      .then((data: ChatType[]) => {
-        console.log("Chats recibidos del backend:", data);
-        setChats(data);
-        if (data.length > 0) setSelectedChatId(data[0].type === 'user' ? `user-${(data[0] as ChatUser).contact.CONSECUSER}` : `group-${(data[0] as ChatGroup).group.CODGRUPO}`);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Error al cargar los chats");
-        setLoading(false);
-      });
+    try {
+      const data: ChatType[] = await apiService.getUserChats(userId);
+      setChats(data);
+      if (data.length > 0) {
+        setSelectedChatId(data[0].type === 'user' 
+          ? `user-${(data[0] as ChatUser).contact.CONSECUSER}` 
+          : `group-${(data[0] as ChatGroup).group.CODGRUPO}`);
+      }
+    } catch (error) {
+      setError("Error al cargar los chats");
+      console.error("Error loading chats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadChats();
   }, [userId]);
 
+  // Recargar mensajes
+  const reloadMessages = async () => {
+    if (!selectedChatId) return;
+    
+    if (selectedChatId.startsWith('user-')) {
+      const contactId = selectedChatId.replace('user-', '');
+      const msgs: MensajeRaw[] = await apiService.getUserMessages(userId);
+      const filtered = msgs.filter((msg: MensajeRaw) =>
+        (msg.CONSECUSER === userId && msg.USE_CONSECUSER === contactId) ||
+        (msg.CONSECUSER === contactId && msg.USE_CONSECUSER === userId)
+      );
+      setMessages(filtered.map((msg: MensajeRaw, idx: number) => ({
+        id: idx + 1,
+        text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
+        sender: msg.CONSECUSER === userId ? 'me' : 'them',
+        time: msg.FECHAREGMEN,
+        hasFile: !!msg.IDTIPOARCHIVO,
+        fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
+        fileType: msg.IDTIPOARCHIVO,
+        fileName: msg.LOCALIZACONTENIDO
+      })));
+    } else if (selectedChatId.startsWith('group-')) {
+      const groupId = selectedChatId.replace('group-', '');
+      const msgs: MensajeRaw[] = await apiService.getGroupMessages(groupId);
+      setMessages(msgs.map((msg: MensajeRaw, idx: number) => ({
+        id: idx + 1,
+        text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
+        sender: msg.CONSECUSER === userId ? 'me' : 'them',
+        time: msg.FECHAREGMEN,
+        hasFile: !!msg.IDTIPOARCHIVO,
+        fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
+        fileType: msg.IDTIPOARCHIVO,
+        fileName: msg.LOCALIZACONTENIDO
+      })));
+    }
+  };
 
-
-  // Cargar mensajes reales al seleccionar un chat
+  // Cargar mensajes al seleccionar chat
   useEffect(() => {
     if (!selectedChatId) return;
     setLoadingMessages(true);
@@ -94,23 +146,24 @@ const ChatLayout: React.FC = () => {
   const chatListData = chats.map((chat) => {
     let id: string, name: string, avatar: string, lastMessage: string, time: string;
     if (chat.type === 'user') {
-      id = `user-${(chat as ChatUser).contact.CONSECUSER}`;
-      name = `${(chat as ChatUser).contact.NOMBRE} ${(chat as ChatUser).contact.APELLIDO}`;
-      avatar = ((chat as ChatUser).contact.NOMBRE[0] + (chat as ChatUser).contact.APELLIDO[0]).toUpperCase();
-      lastMessage = (chat as ChatUser).lastMessage.LOCALIZACONTENIDO || 
-        ((chat as ChatUser).lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]');
-      time = (chat as ChatUser).lastMessage.FECHAREGMEN;
+      id = `user-${chat.contact.CONSECUSER}`;
+      name = `${chat.contact.NOMBRE} ${chat.contact.APELLIDO}`;
+      avatar = (chat.contact.NOMBRE[0] + chat.contact.APELLIDO[0]).toUpperCase();
+      lastMessage = chat.lastMessage.LOCALIZACONTENIDO || 
+        (chat.lastMessage.CONTENIDOIMAG ? decodeOracleRaw(chat.lastMessage.CONTENIDOIMAG) : 
+        (chat.lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]'));
+      time = chat.lastMessage.FECHAREGMEN;
     } else {
-      id = `group-${(chat as ChatGroup).group.CODGRUPO}`;
-      name = (chat as ChatGroup).group.NOMGRUPO;
-      avatar = (chat as ChatGroup).group.NOMGRUPO ? (chat as ChatGroup).group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR';
-      lastMessage = (chat as ChatGroup).lastMessage.LOCALIZACONTENIDO || 
-        ((chat as ChatGroup).lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]');
-      time = (chat as ChatGroup).lastMessage.FECHAREGMEN;
+      id = `group-${chat.group.CODGRUPO}`;
+      name = chat.group.NOMGRUPO;
+      avatar = chat.group.NOMGRUPO ? chat.group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR';
+      lastMessage = chat.lastMessage.LOCALIZACONTENIDO || 
+        (chat.lastMessage.CONTENIDOIMAG ? decodeOracleRaw(chat.lastMessage.CONTENIDOIMAG) : 
+        (chat.lastMessage.IDTIPOARCHIVO ? '[Archivo]' : '[Mensaje sin texto]'));
+      time = chat.lastMessage.FECHAREGMEN;
     }
     return { id, name, avatar, lastMessage, time, unread: 0 };
   });
-  console.log("chatListData para ChatList:", chatListData);
 
   const selectedChat = chats.find((chat) => {
     if (!selectedChatId) return false;
@@ -130,14 +183,26 @@ const ChatLayout: React.FC = () => {
     }
   };
 
-  // Función para iniciar nuevo chat
-  const handleStartNewChat = (contactId: string) => {
-    setSelectedChatId(`user-${contactId}`);
+  // Iniciar nuevo chat (envía mensaje vacío)
+  const startNewChat = async (contactId: string) => {
+    try {
+      await apiService.createMessage({
+        senderId: userId,
+        receiverId: contactId,
+        content: ''
+      });
+
+      setTimeout(async () => {
+        await loadChats();
+        setSelectedChatId(`user-${contactId}`);
+      }, 500);
+    } catch (error) {
+      console.error("Error starting new chat:", error);
+    }
   };
 
-  // Función para enviar mensaje (texto o archivo)
+  // Enviar mensaje (texto o archivo)
   const handleSendMessage = async (text: string, file?: File) => {
-    console.log('Intentando enviar mensaje:', text, 'archivo:', file?.name, 'selectedChatId:', selectedChatId);
     if (!selectedChatId || (!text.trim() && !file)) return;
     
     let receiverId = '';
@@ -150,7 +215,6 @@ const ChatLayout: React.FC = () => {
     
     try {
       if (file) {
-        // Enviar archivo
         await apiService.sendMessageWithFile({
           senderId: userId,
           receiverId: receiverId || undefined,
@@ -159,7 +223,6 @@ const ChatLayout: React.FC = () => {
           file
         });
       } else {
-        // Enviar mensaje de texto
         await apiService.createMessage({
           senderId: userId,
           receiverId: receiverId || undefined,
@@ -167,49 +230,10 @@ const ChatLayout: React.FC = () => {
           content: text
         });
       }
-      
-      // Recargar mensajes después de enviar
       await reloadMessages();
     } catch (e) {
       console.error('Error al enviar mensaje:', e);
       throw new Error('Error al enviar el mensaje');
-    }
-  };
-
-  // Función para recargar mensajes
-  const reloadMessages = async () => {
-    if (!selectedChatId) return;
-    
-    if (selectedChatId.startsWith('user-')) {
-      const contactId = selectedChatId.replace('user-', '');
-      const msgs: MensajeRaw[] = await apiService.getUserMessages(userId);
-      const filtered = msgs.filter((msg: MensajeRaw) =>
-        (msg.CONSECUSER === userId && msg.USE_CONSECUSER === contactId) ||
-        (msg.CONSECUSER === contactId && msg.USE_CONSECUSER === userId)
-      );
-              setMessages(filtered.map((msg: MensajeRaw, idx: number) => ({
-          id: idx + 1,
-          text: typeof msg.LOCALIZACONTENIDO === 'string' && msg.LOCALIZACONTENIDO.trim() !== '' ? msg.LOCALIZACONTENIDO : undefined,
-          sender: msg.CONSECUSER === userId ? 'me' : 'them',
-          time: msg.FECHAREGMEN,
-          hasFile: !!msg.IDTIPOARCHIVO,
-          fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
-          fileType: msg.IDTIPOARCHIVO,
-          fileName: msg.LOCALIZACONTENIDO
-        })));
-    } else if (selectedChatId.startsWith('group-')) {
-      const groupId = selectedChatId.replace('group-', '');
-      const msgs: MensajeRaw[] = await apiService.getGroupMessages(groupId);
-      setMessages(msgs.map((msg: MensajeRaw, idx: number) => ({
-        id: idx + 1,
-        text: typeof msg.LOCALIZACONTENIDO === 'string' && msg.LOCALIZACONTENIDO.trim() !== '' ? msg.LOCALIZACONTENIDO : undefined,
-        sender: msg.CONSECUSER === userId ? 'me' : 'them',
-        time: msg.FECHAREGMEN,
-        hasFile: !!msg.IDTIPOARCHIVO,
-        fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
-        fileType: msg.IDTIPOARCHIVO,
-        fileName: msg.LOCALIZACONTENIDO
-      })));
     }
   };
 
@@ -236,15 +260,19 @@ const ChatLayout: React.FC = () => {
             currentDate={new Date().toLocaleDateString()}
             showNewChatButton={true}
             onGetContacts={handleGetContacts}
-            onStartNewChat={handleStartNewChat}
+            onStartNewChat={startNewChat}
           />
         )}
       </div>
       <div className="chat-view-panel">
         {selectedChat && (
           <ChatView
-            chatName={selectedChat.type === 'user' ? `${selectedChat.contact.NOMBRE} ${selectedChat.contact.APELLIDO}` : selectedChat.group.NOMGRUPO}
-            avatar={selectedChat.type === 'user' ? (selectedChat.contact.NOMBRE[0] + selectedChat.contact.APELLIDO[0]).toUpperCase() : (selectedChat.group.NOMGRUPO ? selectedChat.group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR')}
+            chatName={selectedChat.type === 'user' 
+              ? `${selectedChat.contact.NOMBRE} ${selectedChat.contact.APELLIDO}` 
+              : selectedChat.group.NOMGRUPO}
+            avatar={selectedChat.type === 'user' 
+              ? (selectedChat.contact.NOMBRE[0] + selectedChat.contact.APELLIDO[0]).toUpperCase() 
+              : (selectedChat.group.NOMGRUPO ? selectedChat.group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR')}
             messages={messages}
             onSendMessage={handleSendMessage}
           />
@@ -255,4 +283,4 @@ const ChatLayout: React.FC = () => {
   );
 };
 
-export default ChatLayout; 
+export default ChatLayout;
