@@ -66,6 +66,32 @@ exports.sendMessage = async (req, res) => {
   }
 };
 
+exports.getAllUsersExceptCurrent = async (req, res) => {
+  try {
+    const currentUserId = req.params.currentUserId;
+    
+    const sql = `
+      SELECT CONSECUSER, NOMBRE, APELLIDO
+      FROM USUARIO
+      WHERE CONSECUSER != :currentUserId
+      ORDER BY NOMBRE, APELLIDO
+    `;
+    
+    const result = await executeQuery(sql, { currentUserId });
+    
+    res.json({
+      success: true,
+      users: result.rows
+    });
+  } catch (error) {
+    console.error('Error al obtener todos los usuarios:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Error al obtener todos los usuarios'
+    });
+  }
+};
+
 exports.getUserMessages = async (req, res) => {
   try {
     const { userId } = req.params;

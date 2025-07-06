@@ -33,6 +33,14 @@ class User {
     return result.rows;
   }
 
+  static async getAllUsers() {
+    const result = await database.execute(
+      `SELECT CONSECUSER, NOMBRE, APELLIDO, NOMBRE_USUARIO
+         FROM USUARIO`
+    );
+    return result.rows;
+  }
+
   static async getGroups(userId) {
     const sql = `
       SELECT g.CODGRUPO, g.NOMGRUPO, g.IMAGGRUPO

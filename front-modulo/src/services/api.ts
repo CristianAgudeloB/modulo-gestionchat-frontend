@@ -73,6 +73,11 @@ class ApiService {
     return response.json();
   }
   
+  async getContacts(currentUserId: string): Promise<{ users: any[] }> {
+    const response = await fetch(`${API_BASE_URL}/messages/user/contacts/${currentUserId}`);
+    if (!response.ok) throw new Error('Error al obtener los contactos');
+    return response.json();
+  }
 
   // Enviar mensaje (crear mensaje)
   async createMessage({ senderId, receiverId, groupId, content }: { senderId: string; receiverId?: string; groupId?: string; content: string; }) {

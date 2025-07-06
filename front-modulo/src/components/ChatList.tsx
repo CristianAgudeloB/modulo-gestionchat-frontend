@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import "./ChatList.css";
+import ContactModal from "./ContactModal";
 
 interface Chat {
   id: string;
@@ -10,6 +11,12 @@ interface Chat {
   avatar: string;
 }
 
+interface Contact {
+  CONSECUSER: string;
+  NOMBRE: string;
+  APELLIDO: string;
+}
+
 interface ChatListProps {
   onSelectChat: (chatId: string) => void;
   selectedChatId: string | null;
@@ -18,23 +25,76 @@ interface ChatListProps {
   currentTime?: string;
   currentDate?: string;
   showNewChatButton?: boolean;
+  // Nuevas props
+  onGetContacts: () => Promise<Contact[]>;
+  onStartNewChat: (contactId: string) => void;
 }
 
-const ChatList: React.FC<ChatListProps> = ({ onSelectChat, selectedChatId, chats, loggedUser, currentTime, currentDate, showNewChatButton }) => {
+const ChatList: React.FC<ChatListProps> = ({ 
+  onSelectChat, 
+  selectedChatId, 
+  chats, 
+  loggedUser, 
+  currentTime, 
+  currentDate, 
+  showNewChatButton,
+  onGetContacts,
+  onStartNewChat
+}) => {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+
+  const handleNewChatClick = async () => {
+    setIsModalOpen(true);
+    setIsLoadingContacts(true);
+    try {
+      const contactsData = await onGetContacts();
+      setContacts(contactsData);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    } finally {
+      setIsLoadingContacts(false);
+    }
+  };
+
+  const handleSelectContact = (contact: Contact) => {
+    onStartNewChat(contact.CONSECUSER);
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="chat-list-container">
+      <ContactModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSelectContact={handleSelectContact}
+        contacts={contacts}
+        isLoading={isLoadingContacts}
+      />
+      
       <div className="chat-list-header">
         <h1>Chats</h1>
-        {showNewChatButton && <button className="new-chat-button">Nuevo Chat</button>}
+        {showNewChatButton && (
+          <button 
+            className="new-chat-button"
+            onClick={handleNewChatClick}
+          >
+            Nuevo Chat
+          </button>
+        )}
       </div>
+      
       <div className="chat-user-info">
         <span className="user-name">{loggedUser || "Usuario"}</span>
         <span className="user-time">{currentTime || "--:--"}</span>
         <span className="user-date">{currentDate || "--/--/----"}</span>
       </div>
+      
       <div className="search-container">
         <input type="text" placeholder="Buscar chats..." />
       </div>
+      
       <div className="chats-container">
         {chats.map((chat) => (
           <div

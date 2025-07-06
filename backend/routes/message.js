@@ -17,4 +17,6 @@ router.get('/thread/:messageId', messagesController.getMessageThread);
 // Obtener lista de chats (usuarios y grupos) con último mensaje
 router.get('/user/:userId/chats', messagesController.getUserChats);
 
+router.get('/user/contacts/:currentUserId', messagesController.getAllUsersExceptCurrent);
+
 module.exports = router;
