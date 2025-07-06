@@ -91,6 +91,7 @@ module.exports = {
         return res.status(400).json({ message: 'La ubicación seleccionada no es válida' });
       }
 
+      // Generar consecutivo como antes
       const consecuser = uuidv4().substring(0, 5).toUpperCase();
       const hashedPassword = await bcrypt.hash(password, 10);
       

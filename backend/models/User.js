@@ -15,14 +15,14 @@ class User {
   static async getContacts(userId) {
     const sql = `
       (
-        SELECT u.CONSECUSER, u.NOMBRE, u.APELLIDO, u.USUARIO, u.IMAGEUSER
+        SELECT u.CONSECUSER, u.NOMBRE, u.APELLIDO, u.NOMBRE_USUARIO
         FROM AMIGO a
         JOIN USUARIO u ON a.CONSECUSER = u.CONSECUSER
         WHERE a.USE_CONSECUSER = :userId
       )
       UNION
       (
-        SELECT u.CONSECUSER, u.NOMBRE, u.APELLIDO, u.USUARIO, u.IMAGEUSER
+        SELECT u.CONSECUSER, u.NOMBRE, u.APELLIDO, u.NOMBRE_USUARIO
         FROM AMIGO a
         JOIN USUARIO u ON a.USE_CONSECUSER = u.CONSECUSER
         WHERE a.CONSECUSER = :userId

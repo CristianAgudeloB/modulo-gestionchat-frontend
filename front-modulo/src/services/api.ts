@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'http://localhost:3000/api';
 
 export interface Message {
   id: number;
@@ -41,14 +41,6 @@ class ApiService {
     return this.request<Message[]>('/messages');
   }
 
-  // Create a new message
-  async createMessage(message: Omit<Message, 'id' | 'created_at'>): Promise<{ message: string; id: number }> {
-    return this.request<{ message: string; id: number }>('/messages', {
-      method: 'POST',
-      body: JSON.stringify(message),
-    });
-  }
-
   // Get all chats
   async getChats(): Promise<Chat[]> {
     return this.request<Chat[]>('/chats');
@@ -58,6 +50,39 @@ class ApiService {
   async getMessagesByChat(chatId: number): Promise<Message[]> {
     const messages = await this.getMessages();
     return messages.filter(msg => msg.chat_id === chatId);
+  }
+
+  // Obtener lista de chats reales para un usuario
+  async getUserChats(userId: string) {
+    const response = await fetch(`http://localhost:3000/api/messages/user/${userId}/chats`);
+    if (!response.ok) throw new Error('Error al obtener los chats');
+    return response.json();
+  }
+
+  // Obtener mensajes de usuario (chat individual)
+  async getUserMessages(userId: string) {
+    const response = await fetch(`http://localhost:3000/api/messages/user/${userId}`);
+    if (!response.ok) throw new Error('Error al obtener los mensajes');
+    return response.json();
+  }
+
+  // Obtener mensajes de grupo
+  async getGroupMessages(groupId: string) {
+    const response = await fetch(`http://localhost:3000/api/messages/group/${groupId}`);
+    if (!response.ok) throw new Error('Error al obtener los mensajes de grupo');
+    return response.json();
+  }
+
+  // Enviar mensaje (crear mensaje)
+  async createMessage({ senderId, receiverId, groupId, content }: { senderId: string; receiverId?: string; groupId?: string; content: string; }) {
+    const body = JSON.stringify({ senderId, receiverId, groupId, content });
+    const response = await fetch(`${API_BASE_URL}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!response.ok) throw new Error('Error al enviar el mensaje');
+    return response.json();
   }
 }
 

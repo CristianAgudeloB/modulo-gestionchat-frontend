@@ -1,3 +1,4 @@
+const oracledb = require('oracledb');
 const { executeQuery } = require('../config/database.connect');
 
 class Message {
@@ -11,7 +12,7 @@ class Message {
         :useConsecUser, :consecUser, :consMensaje, 
         :menUseConsecUser, :menConsecUser, :menConsMensaje, 
         :codGrupo, SYSDATE
-      ) RETURNING USE_CONSECUSER, CONSECUSER, CONSMENSAJE INTO :id
+      )
     `;
     
     const binds = {
@@ -21,8 +22,7 @@ class Message {
       menUseConsecUser: messageData.menUseConsecUser || null,
       menConsecUser: messageData.menConsecUser || null,
       menConsMensaje: messageData.menConsMensaje || null,
-      codGrupo: messageData.codGrupo || null,
-      id: { type: oracledb.STRING, dir: oracledb.BIND_OUT }
+      codGrupo: messageData.codGrupo || null
     };
 
     const options = {
@@ -31,34 +31,51 @@ class Message {
     };
 
     const result = await executeQuery(sql, binds, options);
-    return result.outBinds.id[0];
+    return true;
   }
 
   static async getByUser(userId) {
     const sql = `
-      SELECT m.*, u1.NOMBRE as NOMBRE_REMITENTE, u1.APELLIDO as APELLIDO_REMITENTE,
-             u2.NOMBRE as NOMBRE_DESTINATARIO, u2.APELLIDO as APELLIDO_DESTINATARIO
+      SELECT m.*, 
+             u1.NOMBRE as NOMBRE_REMITENTE, u1.APELLIDO as APELLIDO_REMITENTE,
+             u2.NOMBRE as NOMBRE_DESTINATARIO, u2.APELLIDO as APELLIDO_DESTINATARIO,
+             c.CONTENIDOIMAG, c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO,
+             tc.DESCTIPOCONTENIDO
       FROM MENSAJE m
       JOIN USUARIO u1 ON m.CONSECUSER = u1.CONSECUSER
       JOIN USUARIO u2 ON m.USE_CONSECUSER = u2.CONSECUSER
+      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER AND m.CONSECUSER = c.CONSECUSER AND m.CONSMENSAJE = c.CONSMENSAJE
+      LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
       WHERE m.USE_CONSECUSER = :userId OR m.CONSECUSER = :userId
       ORDER BY m.FECHAREGMEN DESC
     `;
     
     const result = await executeQuery(sql, { userId });
+    result.rows = result.rows.map(row => ({
+      ...row,
+      CONTENIDOIMAG: decodeHexToString(row.CONTENIDOIMAG)
+    }));
+    console.log("Mensajes enviados al frontend:", result.rows);
     return result.rows;
   }
 
   static async getByGroup(groupId) {
     const sql = `
-      SELECT m.*, u.NOMBRE, u.APELLIDO
+      SELECT m.*, u.NOMBRE, u.APELLIDO, c.CONTENIDOIMAG, c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, tc.DESCTIPOCONTENIDO
       FROM MENSAJE m
       JOIN USUARIO u ON m.CONSECUSER = u.CONSECUSER
+      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER AND m.CONSECUSER = c.CONSECUSER AND m.CONSMENSAJE = c.CONSMENSAJE
+      LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
       WHERE m.CODGRUPO = :groupId
       ORDER BY m.FECHAREGMEN DESC
     `;
     
     const result = await executeQuery(sql, { groupId });
+    result.rows = result.rows.map(row => ({
+      ...row,
+      CONTENIDOIMAG: decodeHexToString(row.CONTENIDOIMAG)
+    }));
+    console.log("Mensajes enviados al frontend (grupo):", result.rows);
     return result.rows;
   }
 
@@ -78,4 +95,10 @@ class Message {
   }
 }
 
+function decodeHexToString(hex) {
+  if (!hex) return '';
+  return Buffer.from(hex, 'hex').toString('utf8');
+}
+
 module.exports = Message;
+module.exports.decodeHexToString = decodeHexToString;

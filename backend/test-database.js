@@ -1,42 +1,71 @@
-const { abrirConexion, cerrarConexion } = require('./database.connect');
+const { executeQuery } = require('./config/database.connect');
 
-async function testDatabaseConnection() {
-  let connection;
-  
+async function testDatabase() {
   try {
-    console.log('=== TEST DE CONEXIÓN A BASE DE DATOS ===\n');
-    
-    // 1. Probar conexión
-    console.log('1. Probando conexión a la base de datos...');
-    connection = await abrirConexion();
-    console.log('✅ Conexión exitosa\n');
-    
-    // 2. SELECT - Leer datos de la tabla UBICACION
-    console.log('2. Ejecutando SELECT en tabla UBICACION...');
-    const selectResult = await connection.execute(
-      'SELECT * FROM USUARIO'
-    );
-    
-    console.log('✅ SELECT exitoso. Registros encontrados:', selectResult.rows.length);
-    console.log('Datos de la tabla UBICACION:');
-    selectResult.rows.forEach(row => {
-      console.log(`   - ${row[0]} | ${row[1]} | ${row[2]}`);
+    console.log('=== VERIFICANDO DATOS EN LA BASE DE DATOS ===\n');
+
+    // 1. Verificar TIPOCONTENIDO
+    console.log('1. TIPOS DE CONTENIDO:');
+    const tiposContenido = await executeQuery('SELECT * FROM TIPOCONTENIDO');
+    console.log(tiposContenido.rows);
+    console.log('');
+
+    // 2. Verificar MENSAJE
+    console.log('2. MENSAJES:');
+    const mensajes = await executeQuery('SELECT * FROM MENSAJE ORDER BY FECHAREGMEN DESC');
+    console.log(mensajes.rows);
+    console.log('');
+
+    // 3. Verificar CONTENIDO
+    console.log('3. CONTENIDO:');
+    const contenido = await executeQuery('SELECT * FROM CONTENIDO');
+    console.log(contenido.rows);
+    console.log('');
+
+    // 4. Verificar MENSAJES CON CONTENIDO (JOIN)
+    console.log('4. MENSAJES CON CONTENIDO (JOIN):');
+    const mensajesConContenido = await executeQuery(`
+      SELECT 
+        m.*,
+        u1.NOMBRE as NOMBRE_REMITENTE,
+        u1.APELLIDO as APELLIDO_REMITENTE,
+        u2.NOMBRE as NOMBRE_DESTINATARIO,
+        u2.APELLIDO as APELLIDO_DESTINATARIO,
+        c.CONTENIDOIMAG,
+        c.LOCALIZACONTENIDO,
+        tc.DESCTIPOCONTENIDO
+      FROM MENSAJE m
+      JOIN USUARIO u1 ON m.CONSECUSER = u1.CONSECUSER
+      JOIN USUARIO u2 ON m.USE_CONSECUSER = u2.CONSECUSER
+      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER 
+        AND m.CONSECUSER = c.CONSECUSER 
+        AND m.CONSMENSAJE = c.CONSMENSAJE
+      LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
+      ORDER BY m.FECHAREGMEN DESC
+    `);
+    console.log('Mensajes con contenido:');
+    mensajesConContenido.rows.forEach((row, index) => {
+      console.log(`Mensaje ${index + 1}:`);
+      console.log(`  Remitente: ${row.NOMBRE_REMITENTE} ${row.APELLIDO_REMITENTE}`);
+      console.log(`  Destinatario: ${row.NOMBRE_DESTINATARIO} ${row.APELLIDO_DESTINATARIO}`);
+      console.log(`  Fecha: ${row.FECHAREGMEN}`);
+      console.log(`  CONTENIDOIMAG: ${row.CONTENIDOIMAG ? 'SÍ' : 'NO'}`);
+      console.log(`  LOCALIZACONTENIDO: ${row.LOCALIZACONTENIDO || 'NULL'}`);
+      console.log(`  Tipo contenido: ${row.DESCTIPOCONTENIDO || 'NULL'}`);
+      console.log('');
     });
-    console.log();
-    
-    console.log('=== TEST COMPLETADO EXITOSAMENTE ===');
-    console.log('✅ Conexión a la base de datos verificada');
-    console.log('✅ SELECT en tabla UBICACION funcionó correctamente');
-    
+
+    // 5. Verificar USUARIOS
+    console.log('5. USUARIOS:');
+    const usuarios = await executeQuery('SELECT CONSECUSER, NOMBRE, APELLIDO FROM USUARIO');
+    console.log(usuarios.rows);
+    console.log('');
+
   } catch (error) {
-    console.error('❌ Error durante el test:', error.message);
+    console.error('Error:', error);
   } finally {
-    // Cerrar conexión
-    if (connection) {
-      await cerrarConexion();
-    }
+    process.exit(0);
   }
 }
 
-// Ejecutar el test
-testDatabaseConnection().catch(console.error); 
+testDatabase(); 

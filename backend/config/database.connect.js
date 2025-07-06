@@ -38,7 +38,19 @@ async function cerrarConexion() {
   }
 }
 
+async function executeQuery(sql, binds = {}, options = {}) {
+  const conn = await abrirConexion();
+  try {
+    const result = await conn.execute(sql, binds, { ...options, outFormat: oracledb.OUT_FORMAT_OBJECT });
+    return result;
+  } catch (err) {
+    console.error('Error al ejecutar query:', err.message);
+    throw err;
+  }
+}
+
 module.exports = {
   abrirConexion,
   cerrarConexion,
+  executeQuery,
 };

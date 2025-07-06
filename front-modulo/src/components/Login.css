@@ -7,14 +7,10 @@
 
 body {
   background: #fad58c;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-direction: column;
   font-family: "Montserrat", sans-serif;
   height: 100vh;
-  margin: -20px 0 50px;
-  overflow: auto; /* Permitir scroll si es necesario */
+  margin: 0;
+  overflow: auto;
 }
 
 h1 {
@@ -265,4 +261,13 @@ input, .custom-select {
 
 .container.right-panel-active .overlay-right {
   transform: translateX(20%);
+}
+
+.login-outer-wrapper {
+  min-height: 100vh;
+  min-width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fad58c;
 }

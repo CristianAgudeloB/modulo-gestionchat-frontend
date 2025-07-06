@@ -2,7 +2,7 @@ import React from "react";
 import "./ChatList.css";
 
 interface Chat {
-  id: number;
+  id: string;
   name: string;
   lastMessage: string;
   time: string;
@@ -11,8 +11,8 @@ interface Chat {
 }
 
 interface ChatListProps {
-  onSelectChat: (chatId: number) => void;
-  selectedChatId: number;
+  onSelectChat: (chatId: string) => void;
+  selectedChatId: string | null;
   chats: Chat[];
   loggedUser?: string;
   currentTime?: string;

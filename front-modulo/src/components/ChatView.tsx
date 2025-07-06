@@ -12,9 +12,10 @@ interface ChatViewProps {
   chatName: string;
   avatar: string;
   messages: Message[];
+  onSendMessage?: (text: string) => void;
 }
 
-const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages }) => {
+const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages, onSendMessage }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -34,16 +35,19 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
 
   const handleSendMessage = () => {
     if (newMessage.trim() === "") return;
-
-    const newMsg: Message = {
-      id: messages.length + 1,
-      text: newMessage,
-      sender: "me",
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-
-    setMessages([...messages, newMsg]);
-    setNewMessage("");
+    if (onSendMessage) {
+      onSendMessage(newMessage);
+      setNewMessage("");
+    } else {
+      const newMsg: Message = {
+        id: messages.length + 1,
+        text: newMessage,
+        sender: "me",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      };
+      setMessages([...messages, newMsg]);
+      setNewMessage("");
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -70,7 +74,7 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
         {messages.length === 0 ? (
           <div className="no-messages-placeholder">No hay mensajes en este chat. ¡Envía el primero!</div>
         ) : (
-          messages.map((message) => (
+          messages.filter(message => message.text !== '[Mensaje sin texto]').map((message) => (
             <div
               key={message.id}
               className={`message ${message.sender === "me" ? "sent" : "received"}`}

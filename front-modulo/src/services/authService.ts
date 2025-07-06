@@ -43,11 +43,8 @@ export const authService = {
     const token = localStorage.getItem('token');
     if (!token) return null;
     try {
-      const decoded = jwtDecode<{ nombre?: string; apellido?: string; email?: string }>(token);
-      if (decoded.nombre && decoded.apellido) {
-        return decoded.nombre + ' ' + decoded.apellido;
-      }
-      return decoded.nombre || decoded.apellido || decoded.email || null;
+      const decoded = jwtDecode<{ nombre?: string; apellido?: string; email?: string; consecuser?: string; ubicacion?: string }>(token);
+      return decoded;
     } catch {
       return null;
     }

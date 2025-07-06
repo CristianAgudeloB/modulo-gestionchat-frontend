@@ -1,154 +1,237 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
 import "./ChatLayout.css";
 import { authService } from "../services/authService";
+import { apiService } from "../services/api";
 
-// Datos de ejemplo para los chats y mensajes
-const chats = [
-  {
-    id: 1,
-    name: "Juan Pérez",
-    avatar: "JP",
-    messages: [
-      { id: 1, text: "Hola, ¿cómo estás?", sender: "them" as const, time: "10:30 AM" },
-      { id: 2, text: "¡Hola! Bien, ¿y tú?", sender: "me" as const, time: "10:32 AM" },
-      { id: 3, text: "Todo bien por aquí. ¿Ya revisaste el documento que te envié?", sender: "them" as const, time: "10:33 AM" },
-      { id: 4, text: "Sí, lo revisé ayer por la noche. Tengo algunas observaciones que podemos discutir.", sender: "me" as const, time: "10:35 AM" },
-      { id: 5, text: "Perfecto, ¿cuáles son las observaciones?", sender: "them" as const, time: "10:36 AM" },
-      { id: 6, text: "Principalmente en la sección de conclusiones. Creo que necesitamos ser más específicos con los resultados.", sender: "me" as const, time: "10:38 AM" },
-      { id: 7, text: "Tienes razón, ¿podemos reunirnos mañana para revisarlo juntos?", sender: "them" as const, time: "10:40 AM" },
-      { id: 8, text: "¡Por supuesto! ¿A qué hora te parece bien?", sender: "me" as const, time: "10:41 AM" },
-      { id: 9, text: "¿A las 2:00 PM?", sender: "them" as const, time: "10:42 AM" },
-      { id: 10, text: "Perfecto, nos vemos mañana a las 2:00 PM.", sender: "me" as const, time: "10:43 AM" },
-      { id: 11, text: "¡Excelente! Hasta mañana entonces.", sender: "them" as const, time: "10:44 AM" },
-      { id: 12, text: "¡Hasta mañana!", sender: "me" as const, time: "10:45 AM" },
-    ],
-  },
-  {
-    id: 2,
-    name: "Grupo de Trabajo",
-    avatar: "GT",
-    messages: [
-      { id: 1, text: "María: Revisen el documento", sender: "them" as const, time: "Ayer" },
-      { id: 2, text: "¡Listo!", sender: "me" as const, time: "Ayer" },
-      { id: 3, text: "Carlos: Ya lo revisé, está bien", sender: "them" as const, time: "Ayer" },
-      { id: 4, text: "Ana: Yo también lo revisé", sender: "them" as const, time: "Ayer" },
-      { id: 5, text: "Pedro: ¿Alguien más tiene comentarios?", sender: "them" as const, time: "Ayer" },
-      { id: 6, text: "Luis: Todo se ve correcto", sender: "them" as const, time: "Ayer" },
-      { id: 7, text: "Sofia: Estoy de acuerdo", sender: "them" as const, time: "Ayer" },
-      { id: 8, text: "María: Perfecto, entonces procedemos con el deploy", sender: "them" as const, time: "Ayer" },
-      { id: 9, text: "Carlos: Confirmado", sender: "them" as const, time: "Ayer" },
-      { id: 10, text: "Ana: Listo para producción", sender: "them" as const, time: "Ayer" },
-      { id: 11, text: "Pedro: Deploy iniciado", sender: "them" as const, time: "Ayer" },
-      { id: 12, text: "¡Excelente trabajo equipo!", sender: "me" as const, time: "Ayer" },
-    ],
-  },
-  {
-    id: 3,
-    name: "Ana López",
-    avatar: "AL",
-    messages: [
-      { id: 1, text: "Nos vemos mañana", sender: "them" as const, time: "Ayer" },
-      { id: 2, text: "¡Perfecto!", sender: "me" as const, time: "Ayer" },
-      { id: 3, text: "¿A qué hora?", sender: "them" as const, time: "Ayer" },
-      { id: 4, text: "A las 10:00 AM", sender: "me" as const, time: "Ayer" },
-      { id: 5, text: "¿En la oficina o en el café?", sender: "them" as const, time: "Ayer" },
-      { id: 6, text: "En la oficina está bien", sender: "me" as const, time: "Ayer" },
-      { id: 7, text: "Perfecto, nos vemos en la sala de reuniones", sender: "them" as const, time: "Ayer" },
-      { id: 8, text: "¿Necesitas que prepare algo?", sender: "me" as const, time: "Ayer" },
-      { id: 9, text: "Sí, trae los documentos del proyecto", sender: "them" as const, time: "Ayer" },
-      { id: 10, text: "¡Listo! Los tengo preparados", sender: "me" as const, time: "Ayer" },
-      { id: 11, text: "Excelente, hasta mañana", sender: "them" as const, time: "Ayer" },
-      { id: 12, text: "¡Hasta mañana!", sender: "me" as const, time: "Ayer" },
-    ],
-  },
-  {
-    id: 4,
-    name: "Carlos Ruiz",
-    avatar: "CR",
-    messages: [
-      { id: 1, text: "Gracias por la información", sender: "them" as const, time: "Lunes" },
-      { id: 2, text: "De nada!", sender: "me" as const, time: "Lunes" },
-      { id: 3, text: "¿Necesitas algo más?", sender: "me" as const, time: "Lunes" },
-      { id: 4, text: "No, por ahora está todo bien", sender: "them" as const, time: "Lunes" },
-      { id: 5, text: "¿Cómo va el proyecto?", sender: "me" as const, time: "Lunes" },
-      { id: 6, text: "Muy bien, avanzando según lo planeado", sender: "them" as const, time: "Lunes" },
-      { id: 7, text: "¿Hay algún problema que deba conocer?", sender: "me" as const, time: "Lunes" },
-      { id: 8, text: "Nada grave, solo algunos ajustes menores", sender: "them" as const, time: "Lunes" },
-      { id: 9, text: "¿Necesitas ayuda con algo?", sender: "me" as const, time: "Lunes" },
-      { id: 10, text: "Por ahora no, pero te aviso si surge algo", sender: "them" as const, time: "Lunes" },
-      { id: 11, text: "Perfecto, estoy disponible", sender: "me" as const, time: "Lunes" },
-      { id: 12, text: "Gracias, lo tendré en cuenta", sender: "them" as const, time: "Lunes" },
-    ],
-  },
-  {
-    id: 5,
-    name: "Soporte Técnico",
-    avatar: "ST",
-    messages: [
-      { id: 1, text: "Su ticket ha sido resuelto", sender: "them" as const, time: "Viernes" },
-      { id: 2, text: "¡Gracias!", sender: "me" as const, time: "Viernes" },
-      { id: 3, text: "¿Hay algo más en lo que podamos ayudarle?", sender: "them" as const, time: "Viernes" },
-      { id: 4, text: "No, por ahora está todo bien. Muchas gracias.", sender: "me" as const, time: "Viernes" },
-      { id: 5, text: "¿Puede confirmar que el problema está resuelto?", sender: "them" as const, time: "Viernes" },
-      { id: 6, text: "Sí, todo funciona perfectamente", sender: "me" as const, time: "Viernes" },
-      { id: 7, text: "Excelente, cerraremos el ticket", sender: "them" as const, time: "Viernes" },
-      { id: 8, text: "¿Recibirá algún tipo de encuesta?", sender: "me" as const, time: "Viernes" },
-      { id: 9, text: "Sí, recibirá un email con una encuesta de satisfacción", sender: "them" as const, time: "Viernes" },
-      { id: 10, text: "Perfecto, la completaré", sender: "me" as const, time: "Viernes" },
-      { id: 11, text: "Gracias por su paciencia", sender: "them" as const, time: "Viernes" },
-      { id: 12, text: "¡De nada! Que tengan un buen día", sender: "me" as const, time: "Viernes" },
-    ],
-  }
-];
+// Tipos para los datos
+interface Usuario {
+  CONSECUSER: string;
+  NOMBRE: string;
+  APELLIDO: string;
+  NOMBRE_USUARIO?: string;
+}
 
-const filteredChats = chats.filter(chat => Array.isArray(chat.messages) && chat.messages.length > 0);
+interface MensajeRaw {
+  CONSECUSER: string;
+  USE_CONSECUSER: string;
+  LOCALIZACONTENIDO?: string;
+  CONTENIDOIMAG?: string;
+  FECHAREGMEN: string;
+}
 
-// Genero los datos para ChatList a partir de filteredChats
-const chatListData = filteredChats.map(chat => {
-  const lastMsg = chat.messages[chat.messages.length - 1];
-  return {
-    id: chat.id,
-    name: chat.name,
-    avatar: chat.avatar,
-    lastMessage: lastMsg ? lastMsg.text : '',
-    time: lastMsg ? lastMsg.time : '',
-    unread: 0 // Puedes cambiar esto si tienes lógica de mensajes no leídos
-  };
-});
+interface ChatUser {
+  type: 'user';
+  contact: Usuario;
+  lastMessage: MensajeRaw;
+}
 
-const loggedUser = authService.getLoggedUser() || "Usuario";
-const now = new Date();
-const currentTime = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-const currentDate = now.toLocaleDateString();
+interface ChatGroup {
+  type: 'group';
+  group: { CODGRUPO: string; NOMGRUPO: string };
+  lastMessage: MensajeRaw;
+}
+
+type ChatType = ChatUser | ChatGroup;
+
+interface Message {
+  id: number;
+  text: string;
+  sender: 'me' | 'them';
+  time: string;
+}
 
 const ChatLayout: React.FC = () => {
-  const [selectedChatId, setSelectedChatId] = useState<number>(filteredChats[0].id);
+  // Suponiendo que el usuario logueado tiene un id (ajusta según tu authService)
+  const loggedUser = authService.getLoggedUser();
+  console.log("Usuario logueado:", loggedUser);
+  const userId: string = loggedUser?.consecuser || "1"; // Usa el campo correcto
 
-  const selectedChat = filteredChats.find((chat) => chat.id === selectedChatId);
+  const [chats, setChats] = useState<ChatType[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
+
+  useEffect(() => {
+    setLoading(true);
+    apiService.getUserChats(userId)
+      .then((data: ChatType[]) => {
+        console.log("Chats recibidos del backend:", data);
+        setChats(data);
+        if (data.length > 0) setSelectedChatId(data[0].type === 'user' ? `user-${(data[0] as ChatUser).contact.CONSECUSER}` : `group-${(data[0] as ChatGroup).group.CODGRUPO}`);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Error al cargar los chats");
+        setLoading(false);
+      });
+  }, [userId]);
+
+  // Función para decodificar el contenido de Oracle RAW/base64
+  function decodeOracleRaw(raw: string | undefined): string {
+    if (!raw) return '';
+    try {
+      return atob(raw);
+    } catch {
+      return raw;
+    }
+  }
+
+  // Cargar mensajes reales al seleccionar un chat
+  useEffect(() => {
+    if (!selectedChatId) return;
+    setLoadingMessages(true);
+    if (selectedChatId.startsWith('user-')) {
+      const contactId = selectedChatId.replace('user-', '');
+      apiService.getUserMessages(userId)
+        .then((msgs: MensajeRaw[]) => {
+          const filtered = msgs.filter((msg: MensajeRaw) =>
+            (msg.CONSECUSER === userId && msg.USE_CONSECUSER === contactId) ||
+            (msg.CONSECUSER === contactId && msg.USE_CONSECUSER === userId)
+          );
+          setMessages(filtered.map((msg: MensajeRaw, idx: number) => ({
+            id: idx + 1,
+            text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : '[Mensaje sin texto]'),
+            sender: msg.CONSECUSER === userId ? 'me' : 'them',
+            time: msg.FECHAREGMEN
+          })));
+          setLoadingMessages(false);
+        })
+        .catch(() => {
+          setMessages([]);
+          setLoadingMessages(false);
+        });
+    } else if (selectedChatId.startsWith('group-')) {
+      const groupId = selectedChatId.replace('group-', '');
+      apiService.getGroupMessages(groupId)
+        .then((msgs: MensajeRaw[]) => {
+          setMessages(msgs.map((msg: MensajeRaw, idx: number) => ({
+            id: idx + 1,
+            text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : '[Mensaje sin texto]'),
+            sender: msg.CONSECUSER === userId ? 'me' : 'them',
+            time: msg.FECHAREGMEN
+          })));
+          setLoadingMessages(false);
+        })
+        .catch(() => {
+          setMessages([]);
+          setLoadingMessages(false);
+        });
+    }
+  }, [selectedChatId, userId]);
+
+  // Generar datos para ChatList
+  const chatListData = chats.map((chat) => {
+    let id: string, name: string, avatar: string, lastMessage: string, time: string;
+    if (chat.type === 'user') {
+      id = `user-${(chat as ChatUser).contact.CONSECUSER}`;
+      name = `${(chat as ChatUser).contact.NOMBRE} ${(chat as ChatUser).contact.APELLIDO}`;
+      avatar = ((chat as ChatUser).contact.NOMBRE[0] + (chat as ChatUser).contact.APELLIDO[0]).toUpperCase();
+      lastMessage = (chat as ChatUser).lastMessage.LOCALIZACONTENIDO || ((chat as ChatUser).lastMessage.CONTENIDOIMAG ? decodeOracleRaw((chat as ChatUser).lastMessage.CONTENIDOIMAG) : '[Mensaje sin texto]');
+      time = (chat as ChatUser).lastMessage.FECHAREGMEN;
+    } else {
+      id = `group-${(chat as ChatGroup).group.CODGRUPO}`;
+      name = (chat as ChatGroup).group.NOMGRUPO;
+      avatar = (chat as ChatGroup).group.NOMGRUPO ? (chat as ChatGroup).group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR';
+      lastMessage = (chat as ChatGroup).lastMessage.LOCALIZACONTENIDO || ((chat as ChatGroup).lastMessage.CONTENIDOIMAG ? decodeOracleRaw((chat as ChatGroup).lastMessage.CONTENIDOIMAG) : '[Mensaje sin texto]');
+      time = (chat as ChatGroup).lastMessage.FECHAREGMEN;
+    }
+    return { id, name, avatar, lastMessage, time, unread: 0 };
+  });
+  console.log("chatListData para ChatList:", chatListData);
+
+  const selectedChat = chats.find((chat) => {
+    if (!selectedChatId) return false;
+    if (chat.type === 'user') return selectedChatId === `user-${(chat as ChatUser).contact.CONSECUSER}`;
+    if (chat.type === 'group') return selectedChatId === `group-${(chat as ChatGroup).group.CODGRUPO}`;
+    return false;
+  });
+
+  // Nueva función para enviar mensaje
+  const handleSendMessage = async (text: string) => {
+    console.log('Intentando enviar mensaje:', text, 'selectedChatId:', selectedChatId);
+    if (!selectedChatId || !text.trim()) return;
+    let receiverId = '';
+    let groupId = '';
+    if (selectedChatId.startsWith('user-')) {
+      receiverId = selectedChatId.replace('user-', '');
+    } else if (selectedChatId.startsWith('group-')) {
+      groupId = selectedChatId.replace('group-', '');
+    }
+    try {
+      await apiService.createMessage({
+        senderId: userId,
+        receiverId: receiverId || undefined,
+        groupId: groupId || undefined,
+        content: text
+      });
+      // Recargar mensajes después de enviar
+      if (receiverId) {
+        apiService.getUserMessages(userId).then((msgs: MensajeRaw[]) => {
+          const filtered = msgs.filter((msg: MensajeRaw) =>
+            (msg.CONSECUSER === userId && msg.USE_CONSECUSER === receiverId) ||
+            (msg.CONSECUSER === receiverId && msg.USE_CONSECUSER === userId)
+          );
+          setMessages(filtered.map((msg: MensajeRaw, idx: number) => ({
+            id: idx + 1,
+            text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : '[Mensaje sin texto]'),
+            sender: msg.CONSECUSER === userId ? 'me' : 'them',
+            time: msg.FECHAREGMEN
+          })));
+        });
+      } else if (groupId) {
+        apiService.getGroupMessages(groupId).then((msgs: MensajeRaw[]) => {
+          setMessages(msgs.map((msg: MensajeRaw, idx: number) => ({
+            id: idx + 1,
+            text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : '[Mensaje sin texto]'),
+            sender: msg.CONSECUSER === userId ? 'me' : 'them',
+            time: msg.FECHAREGMEN
+          })));
+        });
+      }
+    } catch (e) {
+      alert('Error al enviar el mensaje');
+    }
+  };
 
   return (
     <div className="chat-layout-container">
       <div className="chat-list-panel">
-        <ChatList
-          onSelectChat={setSelectedChatId}
-          selectedChatId={selectedChatId}
-          chats={chatListData}
-          loggedUser={loggedUser}
-          currentTime={currentTime}
-          currentDate={currentDate}
-          showNewChatButton={true}
-        />
+        {loading ? (
+          <div>Cargando chats...</div>
+        ) : error ? (
+          <div>{error}</div>
+        ) : (
+          <ChatList
+            onSelectChat={setSelectedChatId}
+            selectedChatId={selectedChatId}
+            chats={chatListData}
+            loggedUser={
+              loggedUser
+                ? (loggedUser.nombre && loggedUser.apellido
+                    ? `${loggedUser.nombre} ${loggedUser.apellido}`
+                    : loggedUser.nombre || loggedUser.apellido || "Usuario")
+                : "Usuario"
+            }
+            currentTime={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            currentDate={new Date().toLocaleDateString()}
+            showNewChatButton={true}
+          />
+        )}
       </div>
       <div className="chat-view-panel">
         {selectedChat && (
           <ChatView
-            chatName={selectedChat.name}
-            avatar={selectedChat.avatar}
-            messages={selectedChat.messages}
+            chatName={selectedChat.type === 'user' ? `${selectedChat.contact.NOMBRE} ${selectedChat.contact.APELLIDO}` : selectedChat.group.NOMGRUPO}
+            avatar={selectedChat.type === 'user' ? (selectedChat.contact.NOMBRE[0] + selectedChat.contact.APELLIDO[0]).toUpperCase() : (selectedChat.group.NOMGRUPO ? selectedChat.group.NOMGRUPO.slice(0,2).toUpperCase() : 'GR')}
+            messages={messages}
+            onSendMessage={handleSendMessage}
           />
         )}
+        {loadingMessages && <div>Cargando mensajes...</div>}
       </div>
     </div>
   );

@@ -14,4 +14,7 @@ router.get('/group/:groupId', messagesController.getGroupMessages);
 // Obtener hilo de mensajes (respuestas)
 router.get('/thread/:messageId', messagesController.getMessageThread);
 
+// Obtener lista de chats (usuarios y grupos) con último mensaje
+router.get('/user/:userId/chats', messagesController.getUserChats);
+
 module.exports = router;
