@@ -1,4 +1,3 @@
-// ChatLayout.tsx
 import React, { useState, useEffect } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
