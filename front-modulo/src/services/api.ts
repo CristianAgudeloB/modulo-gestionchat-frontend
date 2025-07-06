@@ -35,6 +35,48 @@ class ApiService {
   async testConnection(): Promise<{ message: string; status: string }> {
     return this.request<{ message: string; status: string }>('/test-connection');
   }
+  async uploadFile(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/messages/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) throw new Error('Error al subir el archivo');
+  return response.json();
+}
+  async sendMessageWithFile({ 
+  senderId, 
+  receiverId, 
+  groupId, 
+  content, 
+  file 
+}: { 
+  senderId: string; 
+  receiverId?: string; 
+  groupId?: string; 
+  content?: string; 
+  file?: File 
+}): Promise<any> {
+  const body = new FormData();
+  body.append('senderId', senderId);
+  if (receiverId) body.append('receiverId', receiverId);
+  if (groupId) body.append('groupId', groupId);
+  if (content) body.append('content', content);
+  if (file) body.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/messages`, {
+    method: 'POST',
+    body,
+  });
+
+  if (!response.ok) throw new Error('Error al enviar el mensaje');
+  return response.json();
+}
+
+
 
   // Get all messages
   async getMessages(): Promise<Message[]> {
@@ -72,7 +114,7 @@ class ApiService {
     if (!response.ok) throw new Error('Error al obtener los mensajes de grupo');
     return response.json();
   }
-  
+
   async getContacts(currentUserId: string): Promise<{ users: any[] }> {
     const response = await fetch(`${API_BASE_URL}/messages/user/contacts/${currentUserId}`);
     if (!response.ok) throw new Error('Error al obtener los contactos');

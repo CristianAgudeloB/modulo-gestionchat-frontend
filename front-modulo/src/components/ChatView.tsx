@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import "./ChatView.css";
+import { apiService } from "../services/api";
 
 interface Message {
   id: number;
@@ -22,6 +23,8 @@ const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initial
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
@@ -48,29 +51,64 @@ useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const handleSendMessage = () => {
-    if (newMessage.trim() === "") return;
+  const handleSendMessage = async () => {
+  if (newMessage.trim() === "" && !file) return;
+  
+  try {
     if (onSendMessage) {
-      onSendMessage(newMessage);
+      if (file) {
+        await apiService.sendMessageWithFile({
+          senderId: "currentUserId", // Debes obtener este ID del estado o props
+          receiverId: "receiverId", // Ajusta según tu lógica
+          content: newMessage,
+          file
+        });
+      } else {
+        onSendMessage(newMessage);
+      }
       setNewMessage("");
+      setFile(null);
+      setPreview(null);
     } else {
+      // Lógica local para demo
       const newMsg: Message = {
         id: messages.length + 1,
-        text: newMessage,
+        text: file ? `[Archivo: ${file.name}] ${newMessage}` : newMessage,
         sender: "me",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
       setMessages([...messages, newMsg]);
       setNewMessage("");
+      setFile(null);
+      setPreview(null);
     }
-  };
+  } catch (error) {
+    console.error("Error al enviar mensaje:", error);
+  }
+};
 
-  const handleAjduntFile = () => {
-    // Esta función se puede usar para adjuntar archivos
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (e.target.files && e.target.files[0]) {
+    const selectedFile = e.target.files[0];
+    setFile(selectedFile);
+    
+    // Crear vista previa para imágenes
+    if (selectedFile.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(selectedFile);
+    } else {
+      setPreview(null);
+    }
+  }
+};
+const removeFile = () => {
+  setFile(null);
+  setPreview(null);
+};
 
-    // Aquí puedes implementar la lógica para adjuntar archivos
-    alert("Funcionalidad de adjuntar archivos aún no implementada.");
-  };
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -99,6 +137,7 @@ useEffect(() => {
         <p>En línea</p>
           </div>
         </div>
+        
         <div className="logout-menu-container" ref={menuRef} style={{ position: "relative" }}>
           <button
         className="logout-menu-btn"
@@ -138,44 +177,70 @@ useEffect(() => {
         )}
       </div>
 
-      <div className="message-input-container">
-        <input
-          type="text"
-          placeholder="Escribe un mensaje..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-        />
-        <button onClick={handleAjduntFile}>
-              <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24px"
-              height="24px"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#ffffff"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              >
-              <path d="M21.44 11.05l-8.49 8.49a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 014.24 4.24l-9.19 9.19a1 1 0 01-1.41-1.41l8.49-8.49" />
-              </svg>
-        </button>
-        
-        <button onClick={handleSendMessage}>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="#ffffff"
-            width="24px"
-            height="24px"
-          >
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-          </svg>
-        </button>
-      </div>
+        <div className="message-input-container">
+      {/* Input oculto para archivos */}
+      <input
+        type="file"
+        id="file-input"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+      
+      {/* Botón para adjuntar archivos */}
+      <label htmlFor="file-input" className="file-input-label">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24px"
+          height="24px"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21.44 11.05l-8.49 8.49a5 5 0 01-7.07-7.07l9.19-9.19a3 3 0 014.24 4.24l-9.19 9.19a1 1 0 01-1.41-1.41l8.49-8.49" />
+        </svg>
+      </label>
+      
+      {/* Vista previa del archivo */}
+      {preview && (
+        <div className="file-preview">
+          <img src={preview} alt="Preview" style={{ maxWidth: '50px', maxHeight: '50px' }} />
+          <button onClick={removeFile} className="remove-file-btn">×</button>
+        </div>
+      )}
+      {file && !preview && (
+        <div className="file-preview">
+          <span>{file.name}</span>
+          <button onClick={removeFile} className="remove-file-btn">×</button>
+        </div>
+      )}
+      
+      {/* Input de texto */}
+      <input
+        type="text"
+        placeholder="Escribe un mensaje..."
+        value={newMessage}
+        onChange={(e) => setNewMessage(e.target.value)}
+        onKeyPress={handleKeyPress}
+      />
+      
+      {/* Botón de enviar */}
+      <button onClick={handleSendMessage}>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="#ffffff"
+          width="24px"
+          height="24px"
+        >
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+        </svg>
+      </button>
     </div>
-  );
+  </div>
+);
 };
 
 export default ChatView;
