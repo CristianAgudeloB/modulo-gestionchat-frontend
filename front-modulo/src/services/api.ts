@@ -35,6 +35,18 @@ class ApiService {
     return this.request<{ message: string; status: string }>('/test-connection');
   }
 
+    async createGroup(
+    groupName: string, 
+    creatorId: string, 
+    memberIds: string[]
+  ): Promise<{ success: boolean; groupId: number }> {
+    return this.request('/groups/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupName, creatorId, memberIds }),
+    });
+  }
+
   async uploadFile(file: File): Promise<{ url: string }> {
     const formData = new FormData();
     formData.append('file', file);

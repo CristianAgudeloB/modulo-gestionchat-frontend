@@ -327,22 +327,20 @@ const ChatLayout: React.FC = () => {
           <div>{error}</div>
         ) : (
           <ChatList
-            onSelectChat={setSelectedChatId}
-            selectedChatId={selectedChatId}
-            chats={chatListData}
-            loggedUser={
-              loggedUser
-                ? (loggedUser.nombre && loggedUser.apellido
-                  ? `${loggedUser.nombre} ${loggedUser.apellido}`
-                  : loggedUser.nombre || loggedUser.apellido || "Usuario")
-                : "Usuario"
-            }
-            currentTime={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            currentDate={new Date().toLocaleDateString()}
-            showNewChatButton={true}
-            onGetContacts={handleGetContacts}
-            onStartNewChat={startNewChat}
-          />
+                onSelectChat={setSelectedChatId}
+                selectedChatId={selectedChatId}
+                
+                chats={chatListData}
+                loggedUser={loggedUser
+                  ? (loggedUser.nombre && loggedUser.apellido
+                    ? `${loggedUser.nombre} ${loggedUser.apellido}`
+                    : loggedUser.nombre || loggedUser.apellido || "Usuario")
+                  : "Usuario"}
+                currentTime={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                currentDate={new Date().toLocaleDateString()}
+                showNewChatButton={true}
+                onGetContacts={handleGetContacts}
+                onStartNewChat={startNewChat} currentUserId={userId}          />
         )}
       </div>
       <div className="chat-view-panel">

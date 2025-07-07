@@ -7,6 +7,7 @@ const { abrirConexion, cerrarConexion } = require('./config/database.connect');
 const authRouter = require('./routes/auth');
 const messagesRouter = require('./routes/message');
 const ubicacionRouter = require('./routes/ubicacion');
+const groupRouter = require('./routes/group');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
@@ -30,6 +31,7 @@ const io = socketIo(server, {
 
   app.use('/api/auth', authRouter);
   app.use('/api/messages', messagesRouter);
+   app.use('/api/groups', groupRouter);
   app.use('/api/ubicaciones', ubicacionRouter);
 
   app.get('/api/health', (req, res) =>
@@ -73,7 +75,17 @@ const io = socketIo(server, {
   io.on('connection', (socket) => {
     console.log(`🔌 Cliente conectado (${socket.id})`);
 
+  socket.on('join-groups', (groups) => {
+    groups.forEach(groupId => {
+      socket.join(`group_${groupId}`);
+      console.log(`👥 Usuario unido a grupo: ${groupId}`);
+    });
+  });
+
     socket.on('sendMessage', async (msg) => {
+      if (msg.groupId) {
+        io.to(`group_${msg.groupId}`).emit('newGroupMessage', msg);
+      }
       io.emit('receiveMessage', msg);
       try {
         const connection = await abrirConexion();

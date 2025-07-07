@@ -15,7 +15,18 @@ exports.sendMessage = async (req, res) => {
     }
     const { senderId, receiverId, groupId, replyTo } = req.body;
 
-    if (!receiverId && !groupId) {
+    if (groupId) {
+      // Verificar que el usuario pertenece al grupo
+      const memberCheck = await executeQuery(
+        `SELECT 1 FROM PERTENECE 
+         WHERE CODGRUPO = :groupId AND CONSECUSER = :senderId`,
+        { groupId, senderId }
+      );
+      
+      if (memberCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'Usuario no pertenece al grupo' });
+      }
+    } else if (!receiverId) {
       return res.status(400).json({ error: 'Debe especificar un destinatario o grupo' });
     }
 
@@ -77,9 +88,19 @@ exports.sendMessage = async (req, res) => {
 
     if (io) {
       if (receiverId) {
+        // Mensaje directo
         io.to(receiverId).emit('newMessage', message);
       } else if (groupId) {
-        io.to(`group_${groupId}`).emit('newGroupMessage', message);
+        // Mensaje a grupo: emitir a todos los miembros del grupo
+        const members = await executeQuery(
+          `SELECT CONSECUSER FROM PERTENECE 
+           WHERE CODGRUPO = :groupId AND CONSECUSER != :senderId`,
+          { groupId, senderId }
+        );
+        
+        members.rows.forEach(member => {
+          io.to(member.CONSECUSER).emit('newGroupMessage', message);
+        });
       }
     }
 
@@ -93,6 +114,83 @@ exports.sendMessage = async (req, res) => {
   } catch (error) {
     console.error('Error al enviar mensaje:', error, error?.stack);
     res.status(500).json({ error: 'Error al enviar el mensaje', details: error.message });
+  }
+};
+
+exports.getUserChats = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const db = require('../config/database.connect');
+    
+    // Chats individuales
+    const contactsSql = `
+      SELECT DISTINCT
+        CASE WHEN m.CONSECUSER = :userId THEN m.USE_CONSECUSER ELSE m.CONSECUSER END AS CONTACT_ID
+      FROM MENSAJE m
+      WHERE m.CONSECUSER = :userId OR m.USE_CONSECUSER = :userId
+    `;
+    const contactsResult = await db.executeQuery(contactsSql, { userId });
+    const contactIds = contactsResult.rows.map(r => r.CONTACT_ID).filter(id => id !== userId);
+    let chats = [];
+    
+    // Procesar chats individuales
+    for (const contactId of contactIds) {
+      // ... (código existente para chats individuales) ...
+    }
+    
+    // Chats de grupo
+    const groupsSql = `
+      SELECT g.CODGRUPO, g.NOMGRUPO
+      FROM GRUPO g
+      JOIN PERTENECE p ON g.CODGRUPO = p.CODGRUPO
+      WHERE p.CONSECUSER = :userId
+    `;
+    const groupsResult = await db.executeQuery(groupsSql, { userId });
+    
+    for (const group of groupsResult.rows) {
+      const lastMessageSql = `
+        SELECT m.*, u.NOMBRE, u.APELLIDO, c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, c.IDTIPOARCHIVO,
+               tc.DESCTIPOCONTENIDO
+        FROM MENSAJE m
+        JOIN USUARIO u ON m.CONSECUSER = u.CONSECUSER
+        LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER 
+          AND m.CONSECUSER = c.CONSECUSER 
+          AND m.CONSMENSAJE = c.CONSMENSAJE 
+          AND c.CONSECCONTENIDO = 1
+        LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
+        WHERE m.CODGRUPO = :groupId
+        ORDER BY m.FECHAREGMEN DESC
+      `;
+      const result = await db.executeQuery(lastMessageSql, { groupId: group.CODGRUPO });
+      
+      if (result.rows.length > 0) {
+        let lastMsg = result.rows[0];
+        chats.push({
+          type: 'group',
+          group: { CODGRUPO: group.CODGRUPO, NOMGRUPO: group.NOMGRUPO },
+          lastMessage: lastMsg
+        });
+      } else {
+        // Grupo sin mensajes
+        chats.push({
+          type: 'group',
+          group: { CODGRUPO: group.CODGRUPO, NOMGRUPO: group.NOMGRUPO },
+          lastMessage: null
+        });
+      }
+    }
+    
+    // Ordenar todos los chats por fecha
+    chats.sort((a, b) => {
+      const dateA = a.lastMessage ? new Date(a.lastMessage.FECHAREGMEN) : new Date(0);
+      const dateB = b.lastMessage ? new Date(b.lastMessage.FECHAREGMEN) : new Date(0);
+      return dateB - dateA;
+    });
+    
+    res.json(chats);
+  } catch (error) {
+    console.error('Error al obtener lista de chats:', error);
+    res.status(500).json({ error: 'Error al obtener lista de chats' });
   }
 };
 

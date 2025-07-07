@@ -33,6 +33,62 @@ class Message {
     const result = await executeQuery(sql, binds, options);
     return true;
   }
+  
+static async getByGroup(groupId) {
+  const sql = `
+    SELECT 
+      m.*, 
+      u.NOMBRE, u.APELLIDO, 
+      c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, c.IDTIPOARCHIVO,
+      tc.DESCTIPOCONTENIDO, ta.DESCTIPOARCHIVO,
+      parent_c.LOCALIZACONTENIDO as PARENT_CONTENT,
+      parent_c.IDTIPOARCHIVO as PARENT_FILE_TYPE
+    FROM MENSAJE m
+    JOIN USUARIO u ON m.CONSECUSER = u.CONSECUSER
+    LEFT JOIN CONTENIDO c 
+      ON m.USE_CONSECUSER = c.USE_CONSECUSER 
+      AND m.CONSECUSER = c.CONSECUSER 
+      AND m.CONSMENSAJE = c.CONSMENSAJE 
+      AND c.CONSECCONTENIDO = 1
+    LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
+    LEFT JOIN TIPOARCHIVO ta ON c.IDTIPOARCHIVO = ta.IDTIPOARCHIVO
+    LEFT JOIN MENSAJE parent_m 
+      ON m.MEN_USE_CONSECUSER = parent_m.USE_CONSECUSER 
+      AND m.MEN_CONSECUSER = parent_m.CONSECUSER 
+      AND m.MEN_CONSMENSAJE = parent_m.CONSMENSAJE
+    LEFT JOIN CONTENIDO parent_c 
+      ON parent_m.USE_CONSECUSER = parent_c.USE_CONSECUSER 
+      AND parent_m.CONSECUSER = parent_c.CONSECUSER 
+      AND parent_m.CONSMENSAJE = parent_c.CONSMENSAJE
+      AND parent_c.CONSECCONTENIDO = 1
+    WHERE m.CODGRUPO = :groupId
+    ORDER BY m.FECHAREGMEN ASC
+  `;
+  
+  const result = await executeQuery(sql, { groupId });
+  
+  const messages = result.rows.map(row => {
+    const message = {
+      ...row,
+      hasFile: !!row.IDTIPOARCHIVO,
+      fileUrl: row.IDTIPOARCHIVO ? 
+        `http://localhost:3000/api/messages/file/${row.USE_CONSECUSER}/${row.CONSECUSER}/${row.CONSMENSAJE}` : 
+        null,
+      replyTo: null
+    };
+    
+    if (row.MEN_USE_CONSECUSER && row.MEN_CONSECUSER && row.MEN_CONSMENSAJE) {
+      message.replyTo = {
+        id: `${row.MEN_USE_CONSECUSER}-${row.MEN_CONSECUSER}-${row.MEN_CONSMENSAJE}`,
+        text: row.PARENT_CONTENT || (row.PARENT_FILE_TYPE ? '[Archivo]' : '[Mensaje]')
+      };
+    }
+    
+    return message;
+  });
+  
+  return messages;
+}
 
   static async getByUser(userId) {
     const sql = `

@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import "./ChatList.css";
 import ContactModal from "./ContactModal";
+import CreateGroupModal from "./CreateGroupModal";
+import { apiService } from "../services/api";
 
 interface Chat {
   id: string;
@@ -25,7 +27,7 @@ interface ChatListProps {
   currentTime?: string;
   currentDate?: string;
   showNewChatButton?: boolean;
-  // Nuevas props
+  currentUserId: string;
   onGetContacts: () => Promise<Contact[]>;
   onStartNewChat: (contactId: string) => void;
 }
@@ -38,10 +40,12 @@ const ChatList: React.FC<ChatListProps> = ({
   currentTime, 
   currentDate, 
   showNewChatButton,
+  currentUserId,
   onGetContacts,
   onStartNewChat
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateGroupModalOpen, setCreateGroupModalOpen] = useState(false);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
 
@@ -63,6 +67,28 @@ const ChatList: React.FC<ChatListProps> = ({
     setIsModalOpen(false);
   };
 
+   const handleNewGroupClick = async () => {
+    setCreateGroupModalOpen(true);
+    setIsLoadingContacts(true);
+    try {
+      const contactsData = await onGetContacts();
+      setContacts(contactsData);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    } finally {
+      setIsLoadingContacts(false);
+    }
+  };
+
+  const handleCreateGroup = async (groupName: string, selectedMemberIds: string[]) => {
+    try {
+      await apiService.createGroup(groupName, currentUserId, selectedMemberIds);
+      setCreateGroupModalOpen(false);
+    } catch (error) {
+      console.error('Error creating group:', error);
+    }
+  };
+
   return (
     <div className="chat-list-container">
       <ContactModal
@@ -70,6 +96,13 @@ const ChatList: React.FC<ChatListProps> = ({
         onClose={() => setIsModalOpen(false)}
         onSelectContact={handleSelectContact}
         contacts={contacts}
+        isLoading={isLoadingContacts}
+      />
+      <CreateGroupModal
+        isOpen={isCreateGroupModalOpen}
+        onClose={() => setCreateGroupModalOpen(false)}
+        contacts={contacts}
+        onCreateGroup={handleCreateGroup}
         isLoading={isLoadingContacts}
       />
       
@@ -83,6 +116,12 @@ const ChatList: React.FC<ChatListProps> = ({
             Nuevo Chat
           </button>
         )}
+          <button 
+            className="new-chat-button"
+            onClick={handleNewGroupClick}
+          >
+            Nuevo Grupo
+          </button>
       </div>
       
       <div className="chat-user-info">
