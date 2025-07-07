@@ -15,9 +15,11 @@ interface ChatViewProps {
   messages: Message[];
   onSendMessage?: (text: string) => void,
   onLogout?: () => void;
+   isGroup?: boolean;
+  members?: { id: string; name: string; avatar: string }[];
 }
 
-const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages, onSendMessage,onLogout }) => {
+const ChatView: React.FC<ChatViewProps> = ({ chatName, avatar, messages: initialMessages, onSendMessage,onLogout,isGroup = false,members = [] }) => {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [newMessage, setNewMessage] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -137,7 +139,18 @@ const removeFile = () => {
         <p>En línea</p>
           </div>
         </div>
-        
+         {isGroup && (
+          <div className="group-members">
+            {members.slice(0, 3).map(member => (
+              <div key={member.id} className="member-avatar">
+                {member.avatar}
+              </div>
+            ))}
+            {members.length > 3 && (
+              <div className="more-members">+{members.length - 3}</div>
+            )}
+          </div>
+        )}
         <div className="logout-menu-container" ref={menuRef} style={{ position: "relative" }}>
           <button
         className="logout-menu-btn"
@@ -168,6 +181,11 @@ const removeFile = () => {
             key={message.id}
             className={`message ${message.sender === "me" ? "sent" : "received"}`}
           >
+            {isGroup && message.sender !== "me" && (
+                <div className="message-sender">
+                  {members.find(m => m.id === message.sender)?.name || "Usuario"}
+                </div>
+              )}
             <div className="message-content">
           <p>{message.text}</p>
           <span className="message-time">{message.time}</span>

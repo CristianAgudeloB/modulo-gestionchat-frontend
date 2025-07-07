@@ -221,3 +221,76 @@ body {
   opacity: 0.9;
   margin-right: 8px;
 }
+.group-modal {
+  max-width: 500px;
+  width: 90%;
+}
+
+.group-name-input {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.group-name-input input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.new-chat-options {
+  display: flex;
+  gap: 10px;
+}
+
+.new-group-button {
+  border-radius: 20px;
+  border: 1px solid #ffffff;
+  background-color: transparent;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 8px 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.new-group-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.contact-selected-check {
+  margin-left: auto;
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.selected-count {
+  margin-right: auto;
+  color: #666;
+  font-size: 14px;
+}
+
+.create-group-button {
+  border-radius: 20px;
+  border: 1px solid #ffffff;
+  background-color: #ffa726;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 8px 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.create-group-button:disabled {
+  background-color: #cccccc;
+  color: #fff;
+  border: 1px solid #cccccc;
+  cursor: not-allowed;
+}

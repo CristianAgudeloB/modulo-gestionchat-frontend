@@ -14,6 +14,15 @@ export interface Chat {
   last_message_at: string;
 }
 
+export interface Group {
+  id: number;
+  name: string;
+  members: string[];
+  creatorId: string;
+  imageUrl?: string;
+  createdAt?: string;
+}
+
 class ApiService {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -77,6 +86,114 @@ class ApiService {
 }
 
 
+// Crear grupo
+async createGroup(data: {
+  name: string;
+  members: string[];
+  creatorId: string;
+  image?: File;
+}): Promise<Group> {
+  try {
+    // 1. Verificar conexión antes de intentar
+    await this.testConnection();
+
+    // 2. Preparar FormData
+    const formData = new FormData();
+    formData.append('groupName', data.name);
+    data.members.forEach(member => formData.append('members', member));
+    formData.append('creatorId', data.creatorId);
+    if (data.image) formData.append('image', data.image);
+
+    // 3. Configuración de fetch con timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 segundos timeout
+
+    const response = await fetch(`${API_BASE_URL}/groups`, {
+      method: 'POST',
+      body: formData,
+      credentials: 'include',
+      signal: controller.signal,
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+      }
+    });
+    clearTimeout(timeoutId);
+
+    // 4. Manejo de respuesta
+    if (!response.ok) {
+      const errorText = await response.text();
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.message || `Error ${response.status}: ${response.statusText}`);
+      } catch {
+        throw new Error(errorText || `Error ${response.status}: ${response.statusText}`);
+      }
+    }
+
+    return await response.json();
+
+  } catch (error) {
+    console.error('Error completo en createGroup:', {
+      error: (error instanceof Error ? error.message : String(error)),
+      requestData: {
+        name: data.name,
+        members: data.members,
+        hasImage: !!data.image
+      },
+      apiUrl: `${API_BASE_URL}/groups`,
+      timestamp: new Date().toISOString()
+    });
+
+    // Mensajes de error más descriptivos
+    if (typeof error === 'object' && error !== null && 'name' in error && (error as any).name === 'AbortError') {
+      throw new Error('El servidor no respondió a tiempo. Verifica tu conexión.');
+    } else if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as any).message === 'string' && (error as any).message.includes('Failed to fetch')) {
+      throw new Error('No se pudo conectar al servidor. Verifica: \n1. Que el servidor esté corriendo\n2. Que la URL sea correcta\n3. Tu conexión a internet');
+    }
+
+    throw error; // Re-lanzar otros errores
+  }
+}
+
+// Añadir miembros a grupo
+async addGroupMembers(groupId: number, members: string[]): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/members`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ members })
+  });
+
+  if (!response.ok) throw new Error('Error al añadir miembros al grupo');
+}
+
+// Enviar mensaje a grupo
+async sendGroupMessage({ groupId, senderId, content, file }: {
+  groupId: number;
+  senderId: string;
+  content?: string;
+  file?: File;
+}): Promise<void> {
+  const formData = new FormData();
+  formData.append('senderId', senderId);
+  if (content) formData.append('content', content);
+  if (file) formData.append('file', file);
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/messages`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) throw new Error('Error al enviar mensaje al grupo');
+}
+
+// Obtener mensajes de grupo
+async getGroupMessages(groupId: number): Promise<Message[]> {
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/messages`);
+  if (!response.ok) throw new Error('Error al obtener mensajes del grupo');
+  return response.json();
+}
 
   // Get all messages
   async getMessages(): Promise<Message[]> {
@@ -105,13 +222,6 @@ class ApiService {
   async getUserMessages(userId: string) {
     const response = await fetch(`http://localhost:3000/api/messages/user/${userId}`);
     if (!response.ok) throw new Error('Error al obtener los mensajes');
-    return response.json();
-  }
-
-  // Obtener mensajes de grupo
-  async getGroupMessages(groupId: string) {
-    const response = await fetch(`http://localhost:3000/api/messages/group/${groupId}`);
-    if (!response.ok) throw new Error('Error al obtener los mensajes de grupo');
     return response.json();
   }
 
