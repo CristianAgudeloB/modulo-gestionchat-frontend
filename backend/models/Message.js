@@ -51,15 +51,31 @@ class Message {
       ORDER BY m.FECHAREGMEN DESC
     `;
     
-    const result = await executeQuery(sql, { userId });
-    result.rows = result.rows.map(row => ({
+  const result = await executeQuery(sql, { userId });
+  
+  // Procesar resultados para incluir información de respuestas
+  result.rows = result.rows.map(row => {
+    const message = {
       ...row,
       hasFile: !!row.IDTIPOARCHIVO,
       fileUrl: row.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${row.USE_CONSECUSER}/${row.CONSECUSER}/${row.CONSMENSAJE}` : null
-    }));
-    console.log("Mensajes enviados al frontend:", result.rows);
-    return result.rows;
-  }
+    };
+    
+    // Si es una respuesta, agregar información del mensaje padre
+    if (row.MEN_USE_CONSECUSER && row.MEN_CONSECUSER && row.MEN_CONSMENSAJE) {
+      message.replyTo = {
+        id: `${row.MEN_USE_CONSECUSER}-${row.MEN_CONSECUSER}-${row.MEN_CONSMENSAJE}`,
+        text: row.PARENT_LOCALIZACONTENIDO,
+        sender: row.MEN_CONSECUSER === userId ? 'me' : 'them',
+        hasFile: !!row.PARENT_IDTIPOARCHIVO
+      };
+    }
+    
+    return message;
+  });
+  
+  return result.rows;
+}
 
   static async getByGroup(groupId) {
     const sql = `

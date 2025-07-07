@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import ChatList from "./ChatList";
 import ChatView from "./ChatView";
 import "./ChatLayout.css";
 import { authService } from "../services/authService";
 import { apiService } from "../services/api";
 
-// Tipos para los datos
 interface Usuario {
   CONSECUSER: string;
   NOMBRE: string;
@@ -14,14 +13,18 @@ interface Usuario {
 }
 
 interface MensajeRaw {
-  CONSECUSER: string;
   USE_CONSECUSER: string;
+  CONSECUSER: string;
   CONSMENSAJE: number;
   LOCALIZACONTENIDO?: string;
   CONTENIDOIMAG?: string;
   IDTIPOARCHIVO?: string;
   IDTIPOCONTENIDO?: string;
   FECHAREGMEN: string;
+  replyTo?: {
+    id: string;
+    text: string;
+  };
 }
 
 interface ChatUser {
@@ -38,9 +41,8 @@ interface ChatGroup {
 
 type ChatType = ChatUser | ChatGroup;
 
-// Modificar la interfaz Message para soportar respuestas
 interface Message {
-  id: number;
+  id: string;
   text?: string;
   sender: 'me' | 'them';
   time: string;
@@ -49,9 +51,10 @@ interface Message {
   fileType?: string;
   fileName?: string;
   replyTo?: {
-    id: number;
+    id: string;
     text?: string;
     sender: 'me' | 'them';
+    hasFile?: boolean;
   };
 }
 
@@ -65,11 +68,10 @@ const ChatLayout: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
-
-  // Nuevo estado para mensaje a responder
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  
+  const tempFileUrls = useRef<{ [key: string]: string }>({});
 
-  // Función para decodificar contenido Oracle RAW/base64
   function decodeOracleRaw(raw: string | undefined): string {
     if (!raw) return '';
     try {
@@ -101,64 +103,65 @@ const ChatLayout: React.FC = () => {
 
   useEffect(() => {
     loadChats();
-    // Resetear estado de respuesta al cambiar de chat
     setReplyingTo(null);
+    return () => {
+      Object.values(tempFileUrls.current).forEach(url =>
+        URL.revokeObjectURL(url)
+      );
+    };
   }, [userId]);
 
-  // Recargar mensajes (actualizado)
+  const findMessageById = (id: string): Message | undefined => {
+    return messages.find(msg => msg.id === id);
+  };
+
   const reloadMessages = async () => {
     if (!selectedChatId) return;
 
+    let msgs: MensajeRaw[] = [];
+
     if (selectedChatId.startsWith('user-')) {
       const contactId = selectedChatId.replace('user-', '');
-      const msgs: MensajeRaw[] = await apiService.getUserMessages(userId);
-      const filtered = msgs.filter((msg) =>
+      msgs = await apiService.getUserMessages(userId);
+      msgs = msgs.filter((msg) =>
         (msg.CONSECUSER === userId && msg.USE_CONSECUSER === contactId) ||
         (msg.CONSECUSER === contactId && msg.USE_CONSECUSER === userId)
       );
-      
-      // Ordenar mensajes cronológicamente (más antiguo primero)
-      const orderedMessages = [...filtered].sort((a, b) => 
-        new Date(a.FECHAREGMEN).getTime() - new Date(b.FECHAREGMEN).getTime()
-      );
-      
-      setMessages(orderedMessages.map((msg, idx) => {
-        return {
-          id: idx + 1,
-          text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
-          sender: msg.CONSECUSER === userId ? 'me' : 'them',
-          time: msg.FECHAREGMEN,
-          hasFile: !!msg.IDTIPOARCHIVO,
-          fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
-          fileType: msg.IDTIPOARCHIVO,
-          fileName: msg.LOCALIZACONTENIDO,
-        };
-      }));
     } else if (selectedChatId.startsWith('group-')) {
       const groupId = selectedChatId.replace('group-', '');
-      const msgs: MensajeRaw[] = await apiService.getGroupMessages(groupId);
-      
-      // Ordenar mensajes cronológicamente (más antiguo primero)
-      const orderedMessages = [...msgs].sort((a, b) => 
-        new Date(a.FECHAREGMEN).getTime() - new Date(b.FECHAREGMEN).getTime()
-      );
-      
-      setMessages(orderedMessages.map((msg, idx) => {
-        return {
-          id: idx + 1,
-          text: msg.LOCALIZACONTENIDO || (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
-          sender: msg.CONSECUSER === userId ? 'me' : 'them',
-          time: msg.FECHAREGMEN,
-          hasFile: !!msg.IDTIPOARCHIVO,
-          fileUrl: msg.IDTIPOARCHIVO ? `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` : undefined,
-          fileType: msg.IDTIPOARCHIVO,
-          fileName: msg.LOCALIZACONTENIDO,
-        };
-      }));
+      msgs = await apiService.getGroupMessages(groupId);
     }
+
+    const orderedMessages = [...msgs].sort((a, b) =>
+      new Date(a.FECHAREGMEN).getTime() - new Date(b.FECHAREGMEN).getTime()
+    );
+
+    const formattedMessages = orderedMessages.map((msg) => {
+      const msgId = `${msg.USE_CONSECUSER}-${msg.CONSECUSER}-${msg.CONSMENSAJE}`;
+
+      return {
+        id: msgId,
+        text: msg.LOCALIZACONTENIDO ||
+          (msg.CONTENIDOIMAG ? decodeOracleRaw(msg.CONTENIDOIMAG) : undefined),
+        sender: msg.CONSECUSER === userId ? "me" as const : "them" as const,
+        time: msg.FECHAREGMEN,
+        hasFile: !!msg.IDTIPOARCHIVO,
+        fileUrl: msg.IDTIPOARCHIVO ?
+          `http://localhost:3000/api/messages/file/${msg.USE_CONSECUSER}/${msg.CONSECUSER}/${msg.CONSMENSAJE}` :
+          undefined,
+        fileType: msg.IDTIPOARCHIVO,
+        fileName: msg.LOCALIZACONTENIDO,
+        replyTo: msg.replyTo ? {
+          id: msg.replyTo.id,
+          text: msg.replyTo.text,
+          sender: msg.replyTo.id.split('-')[1] === userId ? "me" as const : "them" as const
+        } : undefined
+      };
+    });
+
+    setMessages(formattedMessages);
   };
 
-  // Cargar mensajes al seleccionar chat
   useEffect(() => {
     if (!selectedChatId) return;
     setLoadingMessages(true);
@@ -170,7 +173,6 @@ const ChatLayout: React.FC = () => {
       });
   }, [selectedChatId, userId]);
 
-  // Generar datos para ChatList
   const chatListData = chats.map((chat) => {
     let id: string, name: string, avatar: string, lastMessage: string, time: string;
     if (chat.type === 'user') {
@@ -200,7 +202,6 @@ const ChatLayout: React.FC = () => {
     return false;
   });
 
-  // Función para obtener contactos
   const handleGetContacts = async () => {
     try {
       const response = await apiService.getContacts(userId);
@@ -211,7 +212,6 @@ const ChatLayout: React.FC = () => {
     }
   };
 
-  // Iniciar nuevo chat (envía mensaje vacío)
   const startNewChat = async (contactId: string) => {
     try {
       await apiService.createMessage({
@@ -229,7 +229,6 @@ const ChatLayout: React.FC = () => {
     }
   };
 
-  // Enviar mensaje (actualizado para soportar respuestas)
   const handleSendMessage = async (
     text: string,
     file?: File,
@@ -246,48 +245,75 @@ const ChatLayout: React.FC = () => {
     }
 
     try {
+      let tempFileUrl: string | undefined = undefined;
+      if (file) {
+        tempFileUrl = URL.createObjectURL(file);
+      }
+
+      const tempId = `temp-${Date.now()}`;
+      const newMessage: Message = {
+        id: tempId,
+        text: text.trim() !== '' ? text : undefined,
+        sender: 'me',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        ...(file && {
+          hasFile: true,
+          fileUrl: tempFileUrl,
+          fileType: file.type.startsWith('image/') ? 'IM' :
+            file.type.startsWith('video/') ? 'VD' :
+              file.type.startsWith('audio/') ? 'AU' : 'OT',
+          fileName: file.name
+        }),
+        ...(replyTo && {
+          replyTo: {
+            id: replyTo.id,
+            text: replyTo.text || (replyTo.hasFile ? '[Archivo]' : '[Mensaje]'),
+            sender: replyTo.sender
+          }
+        })
+      };
+
+      if (tempFileUrl) {
+        tempFileUrls.current[tempId] = tempFileUrl;
+      }
+
+      setMessages(prev => [...prev, newMessage]);
+      setReplyingTo(null);
+
       if (file) {
         await apiService.sendMessageWithFile({
           senderId: userId,
           receiverId: receiverId || undefined,
           groupId: groupId || undefined,
           content: text,
-          file
+          file,
+          replyTo: replyTo?.id
         });
       } else {
         await apiService.createMessage({
           senderId: userId,
           receiverId: receiverId || undefined,
           groupId: groupId || undefined,
-          content: text
+          content: text,
+          replyTo: replyTo?.id
         });
       }
 
-      // Agregar el nuevo mensaje con respuesta si existe
-      const newMessage: Message = {
-        id: messages.length + 1,
-        text: text.trim() !== '' ? text : undefined,
-        sender: 'me',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        ...(file && {
-          hasFile: true,
-          fileType: file.type.startsWith('image/') ? 'IM' :
-            file.type.startsWith('video/') ? 'VD' :
-            file.type.startsWith('audio/') ? 'AU' : 'OT',
-          fileName: file.name
-        }),
-        replyTo: replyTo ? {
-          id: replyTo.id,
-          text: replyTo.text || (replyTo.hasFile ? '[Archivo]' : '[Mensaje]'),
-          sender: replyTo.sender
-        } : undefined
-      };
+      await reloadMessages();
 
-      // Agregar al final del array (manteniendo orden cronológico)
-      setMessages(prev => [...prev, newMessage]);
-      setReplyingTo(null);
+      if (tempFileUrl) {
+        URL.revokeObjectURL(tempFileUrl);
+        delete tempFileUrls.current[tempId];
+      }
+
     } catch (e) {
       console.error('Error al enviar mensaje:', e);
+      if (file) {
+        const tempUrl = tempFileUrls.current[`temp-${Date.now()}`];
+        if (tempUrl) {
+          URL.revokeObjectURL(tempUrl);
+        }
+      }
       throw new Error('Error al enviar el mensaje');
     }
   };
@@ -307,8 +333,8 @@ const ChatLayout: React.FC = () => {
             loggedUser={
               loggedUser
                 ? (loggedUser.nombre && loggedUser.apellido
-                    ? `${loggedUser.nombre} ${loggedUser.apellido}`
-                    : loggedUser.nombre || loggedUser.apellido || "Usuario")
+                  ? `${loggedUser.nombre} ${loggedUser.apellido}`
+                  : loggedUser.nombre || loggedUser.apellido || "Usuario")
                 : "Usuario"
             }
             currentTime={new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

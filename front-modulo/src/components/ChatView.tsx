@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import "./ChatView.css";
 
 interface Message {
-  id: number;
+  id: string;
   text?: string;
   sender: "me" | "them";
   time: string;
@@ -11,7 +11,7 @@ interface Message {
   fileType?: string;
   fileName?: string;
   replyTo?: {
-    id: number;
+    id: string;
     text?: string;
     sender: 'me' | 'them';
     hasFile?: boolean;
@@ -43,15 +43,17 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [preview, setPreview] = useState<string | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMessages(initialMessages);
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      }
+    }, 100);
   }, [initialMessages]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -123,6 +125,12 @@ const ChatView: React.FC<ChatViewProps> = ({
       setFile(null);
       setPreview(null);
       setReplyingTo(null);
+
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      }, 100);
     } catch (error) {
       console.error("Error al enviar mensaje:", error);
     }
@@ -169,7 +177,6 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       </div>
 
-      {/* Barra de respuesta */}
       {replyingTo && (
         <div className="reply-preview-bar">
           <div className="reply-preview-content">
@@ -184,8 +191,11 @@ const ChatView: React.FC<ChatViewProps> = ({
         </div>
       )}
 
-      <div className="messages-container" style={{ display: "flex", flexDirection: "column" }}>
-        <div ref={messagesEndRef} />
+      <div
+        className="messages-container"
+        ref={messagesContainerRef}
+        style={{ display: "flex", flexDirection: "column" }}
+      >
         {messages.length === 0 ? (
           <div className="no-messages-placeholder">
             No hay mensajes en este chat. ¡Envía el primero!
@@ -202,7 +212,6 @@ const ChatView: React.FC<ChatViewProps> = ({
                 key={message.id}
                 className={`message ${message.sender === "me" ? "sent" : "received"}`}
               >
-                {/* Vista previa de mensaje respondido */}
                 {message.replyTo && (
                   <div className={`reply-preview ${message.sender}`}>
                     <div className="reply-indicator" />
@@ -219,7 +228,6 @@ const ChatView: React.FC<ChatViewProps> = ({
                 )}
 
                 <div className="message-content">
-                  {/* Mostrar archivo adjunto si existe */}
                   {message.hasFile && message.fileUrl && (
                     <div className="file-attachment">
                       {message.fileType === "IM" ? (
@@ -287,7 +295,6 @@ const ChatView: React.FC<ChatViewProps> = ({
                     </div>
                   )}
 
-                  {/* Mostrar texto si existe */}
                   {typeof message.text === "string" &&
                     message.text.trim() !== "" &&
                     (!message.hasFile ||
@@ -297,7 +304,6 @@ const ChatView: React.FC<ChatViewProps> = ({
 
                   <span className="message-time">{message.time}</span>
 
-                  {/* Botón de responder */}
                   <button
                     className="reply-button"
                     onClick={() => handleReplyClick(message)}
@@ -318,6 +324,7 @@ const ChatView: React.FC<ChatViewProps> = ({
               </div>
             ))
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="message-input-container">

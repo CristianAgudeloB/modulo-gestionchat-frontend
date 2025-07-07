@@ -8,48 +8,43 @@ exports.sendMessage = async (req, res) => {
   try {
     console.log('Petición recibida en sendMessage:', req.body, req.headers['content-type']);
     const io = req.app.get('io');
-    // Permitir fallback para el campo de texto
+
     let content = req.body.content;
     if (!content) {
       content = req.body.text || req.body.message || '';
     }
-    const { senderId, receiverId, groupId, parentMessageId } = req.body;
-    
-    // Validar que el mensaje tenga un destinatario o grupo
+    const { senderId, receiverId, groupId, replyTo } = req.body;
+
     if (!receiverId && !groupId) {
       return res.status(400).json({ error: 'Debe especificar un destinatario o grupo' });
     }
 
-    // Crear el mensaje base
-    const messageData = {
-      useConsecUser: receiverId || null, // Para mensajes directos
-      consecUser: senderId,
-      consMensaje: await generateMessageId(),
-      codGrupo: groupId || null // Para mensajes de grupo
-    };
-
-    // Si es respuesta a otro mensaje
-    if (parentMessageId) {
-      const parentParts = parentMessageId.split('-');
-      messageData.menUseConsecUser = parentParts[0];
-      messageData.menConsecUser = parentParts[1];
-      messageData.menConsMensaje = parentParts[2];
+    let parentParts = null;
+    if (replyTo) {
+      parentParts = replyTo.split('-');
     }
 
+    const messageData = {
+      useConsecUser: receiverId || null,
+      consecUser: senderId,
+      consMensaje: await generateMessageId(),
+      codGrupo: groupId || null,
+      menUseConsecUser: parentParts ? parentParts[0] : null,
+      menConsecUser: parentParts ? parentParts[1] : null,
+      menConsMensaje: parentParts ? parentParts[2] : null
+    };
+
     const message = await Message.create(messageData);
-    
-    // Determinar tipo de contenido y archivo
-    let idTipoContenido = 'MS'; // Mensaje simple por defecto
+
+    let idTipoContenido = 'MS';
     let idTipoArchivo = null;
     let contenidoImagen = null;
     let localizacionContenido = content || '';
 
-    // Si hay archivo adjunto
     if (req.file) {
       const { getFileType } = require('../middlewares/upload');
       idTipoArchivo = getFileType(req.file.mimetype, req.file.originalname);
-      idTipoContenido = 'MM'; // Siempre multimedia si hay archivo
-      // Leer el archivo como buffer para almacenarlo en BLOB
+      idTipoContenido = 'MM';
       let fileBuffer = null;
       if (req.file.buffer) {
         fileBuffer = req.file.buffer;
@@ -58,11 +53,9 @@ exports.sendMessage = async (req, res) => {
         fs.unlinkSync(req.file.path);
       }
       contenidoImagen = fileBuffer;
-      // Guardar SIEMPRE el nombre original del archivo (con extensión)
       localizacionContenido = req.file.originalname;
     }
 
-    // Insertar el contenido en la tabla CONTENIDO
     await executeQuery(
       `INSERT INTO CONTENIDO (
         USE_CONSECUSER, CONSECUSER, CONSMENSAJE, CONSECCONTENIDO,
@@ -82,19 +75,16 @@ exports.sendMessage = async (req, res) => {
       }
     );
 
-    // Emitir evento de nuevo mensaje (para WebSocket)
     if (io) {
       if (receiverId) {
-        // Mensaje directo
         io.to(receiverId).emit('newMessage', message);
       } else if (groupId) {
-        // Mensaje a grupo
         io.to(`group_${groupId}`).emit('newGroupMessage', message);
       }
     }
 
-    res.status(201).json({ 
-      success: true, 
+    res.status(201).json({
+      success: true,
       message,
       hasFile: !!req.file,
       fileType: idTipoArchivo,
@@ -109,16 +99,16 @@ exports.sendMessage = async (req, res) => {
 exports.getAllUsersExceptCurrent = async (req, res) => {
   try {
     const currentUserId = req.params.currentUserId;
-    
+
     const sql = `
       SELECT CONSECUSER, NOMBRE, APELLIDO
       FROM USUARIO
       WHERE CONSECUSER != :currentUserId
       ORDER BY NOMBRE, APELLIDO
     `;
-    
+
     const result = await executeQuery(sql, { currentUserId });
-    
+
     res.json({
       success: true,
       users: result.rows
@@ -135,7 +125,53 @@ exports.getAllUsersExceptCurrent = async (req, res) => {
 exports.getUserMessages = async (req, res) => {
   try {
     const { userId } = req.params;
-    const messages = await Message.getByUser(userId);
+    const sql = `
+      SELECT m.*, 
+        u1.NOMBRE as NOMBRE_REMITENTE, u1.APELLIDO as APELLIDO_REMITENTE,
+        u2.NOMBRE as NOMBRE_DESTINATARIO, u2.APELLIDO as APELLIDO_DESTINATARIO,
+        c.LOCALIZACONTENIDO, c.IDTIPOCONTENIDO, c.IDTIPOARCHIVO,
+        tc.DESCTIPOCONTENIDO, ta.DESCTIPOARCHIVO,
+        parent_msg.LOCALIZACONTENIDO as PARENT_CONTENT,
+        parent_msg.IDTIPOARCHIVO as PARENT_FILE_TYPE
+      FROM MENSAJE m
+      JOIN USUARIO u1 ON m.CONSECUSER = u1.CONSECUSER
+      JOIN USUARIO u2 ON m.USE_CONSECUSER = u2.CONSECUSER
+      LEFT JOIN CONTENIDO c ON m.USE_CONSECUSER = c.USE_CONSECUSER 
+        AND m.CONSECUSER = c.CONSECUSER 
+        AND m.CONSMENSAJE = c.CONSMENSAJE 
+        AND c.CONSECCONTENIDO = 1
+      LEFT JOIN TIPOCONTENIDO tc ON c.IDTIPOCONTENIDO = tc.IDTIPOCONTENIDO
+      LEFT JOIN TIPOARCHIVO ta ON c.IDTIPOARCHIVO = ta.IDTIPOARCHIVO
+      LEFT JOIN CONTENIDO parent_msg ON m.MEN_USE_CONSECUSER = parent_msg.USE_CONSECUSER 
+        AND m.MEN_CONSECUSER = parent_msg.CONSECUSER 
+        AND m.MEN_CONSMENSAJE = parent_msg.CONSMENSAJE
+        AND parent_msg.CONSECCONTENIDO = 1
+      WHERE (m.USE_CONSECUSER = :userId OR m.CONSECUSER = :userId)
+      ORDER BY m.FECHAREGMEN ASC
+    `;
+
+    const result = await executeQuery(sql, { userId });
+
+    const messages = result.rows.map(row => {
+      const message = {
+        ...row,
+        hasFile: !!row.IDTIPOARCHIVO,
+        fileUrl: row.IDTIPOARCHIVO
+          ? `http://localhost:3000/api/messages/file/${row.USE_CONSECUSER}/${row.CONSECUSER}/${row.CONSMENSAJE}`
+          : null,
+        replyTo: null
+      };
+
+      if (row.MEN_USE_CONSECUSER && row.MEN_CONSECUSER && row.MEN_CONSMENSAJE) {
+        message.replyTo = {
+          id: `${row.MEN_USE_CONSECUSER}-${row.MEN_CONSECUSER}-${row.MEN_CONSMENSAJE}`,
+          text: row.PARENT_CONTENT || (row.PARENT_FILE_TYPE ? '[Archivo]' : '[Mensaje]')
+        };
+      }
+
+      return message;
+    });
+
     res.json(messages);
   } catch (error) {
     console.error('Error al obtener mensajes:', error);
@@ -174,7 +210,6 @@ exports.getUserChats = async (req, res) => {
   try {
     const { userId } = req.params;
     const db = require('../config/database.connect');
-    // Buscar todos los usuarios con los que el usuario ha intercambiado mensajes
     const contactsSql = `
       SELECT DISTINCT
         CASE WHEN m.CONSECUSER = :userId THEN m.USE_CONSECUSER ELSE m.CONSECUSER END AS CONTACT_ID
@@ -185,11 +220,9 @@ exports.getUserChats = async (req, res) => {
     const contactIds = contactsResult.rows.map(r => r.CONTACT_ID).filter(id => id !== userId);
     let chats = [];
     for (const contactId of contactIds) {
-      // Obtener datos del contacto
       const userSql = `SELECT CONSECUSER, NOMBRE, APELLIDO, NOMBRE_USUARIO FROM USUARIO WHERE CONSECUSER = :contactId`;
       const userResult = await db.executeQuery(userSql, { contactId });
       const contact = userResult.rows[0];
-      // Obtener el último mensaje entre el usuario y el contacto
       const lastMessageSql = `
         SELECT m.*, 
                u1.NOMBRE as NOMBRE_REMITENTE, u1.APELLIDO as APELLIDO_REMITENTE,
@@ -215,8 +248,6 @@ exports.getUserChats = async (req, res) => {
         });
       }
     }
-    // (Opcional) Puedes mantener la lógica de grupos si usas grupos
-    // Ordenar por fecha del último mensaje descendente
     chats.sort((a, b) => new Date(b.lastMessage.FECHAREGMEN) - new Date(a.lastMessage.FECHAREGMEN));
     console.log('Chats enviados al frontend:', JSON.stringify(chats, null, 2));
     res.json(chats);
@@ -226,7 +257,6 @@ exports.getUserChats = async (req, res) => {
   }
 };
 
-// Función auxiliar para generar un ID de mensaje único
 async function generateMessageId() {
   const sql = `
     SELECT NVL(MAX(CONSMENSAJE), 0) + 1 as nextId
@@ -236,11 +266,10 @@ async function generateMessageId() {
   return result.rows[0].NEXTID;
 }
 
-// Obtener archivo adjunto a un mensaje
 exports.getFile = async (req, res) => {
   try {
     const { useConsecUser, consecUser, consMensaje } = req.params;
-    
+
     const sql = `
       SELECT c.CONTENIDOIMAG, c.LOCALIZACONTENIDO, c.IDTIPOARCHIVO, c.IDTIPOCONTENIDO,
              ta.DESCTIPOARCHIVO, tc.DESCTIPOCONTENIDO
@@ -252,28 +281,22 @@ exports.getFile = async (req, res) => {
         AND c.CONSMENSAJE = :consMensaje
         AND c.CONSECCONTENIDO = 1
     `;
-    
+
     const result = await executeQuery(sql, { useConsecUser, consecUser, consMensaje });
-    
+
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Archivo no encontrado' });
     }
-    
+
     const fileData = result.rows[0];
-    
+
     if (!fileData.CONTENIDOIMAG) {
       return res.status(404).json({ error: 'No hay archivo adjunto' });
     }
-    
-    // Configurar headers según el tipo de archivo
+
     const contentType = getContentTypeFromFileType(fileData.IDTIPOARCHIVO);
     const fileName = fileData.LOCALIZACONTENIDO || 'archivo';
 
-    // LOGS DE DEPURACIÓN (eliminados para evitar mostrar ceros)
-    // console.log('Tipo de CONTENIDOIMAG:', typeof fileData.CONTENIDOIMAG, Buffer.isBuffer(fileData.CONTENIDOIMAG));
-    // console.log('Tamaño del BLOB:', fileData.CONTENIDOIMAG ? fileData.CONTENIDOIMAG.length : 0);
-
-    // Si CONTENIDOIMAG es un stream (Lob), leerlo como buffer
     if (fileData.CONTENIDOIMAG && typeof fileData.CONTENIDOIMAG === 'object' && typeof fileData.CONTENIDOIMAG.pipe === 'function') {
       let chunks = [];
       fileData.CONTENIDOIMAG.on('data', (chunk) => {
@@ -295,14 +318,13 @@ exports.getFile = async (req, res) => {
       });
       return;
     }
-    
+
   } catch (error) {
     console.error('Error al obtener archivo:', error);
     res.status(500).json({ error: 'Error al obtener el archivo' });
   }
 };
 
-// Función auxiliar para obtener el content type basado en el tipo de archivo
 function getContentTypeFromFileType(fileType) {
   const contentTypes = {
     'IM': 'image/jpeg',
@@ -313,36 +335,31 @@ function getContentTypeFromFileType(fileType) {
   return contentTypes[fileType] || 'application/octet-stream';
 }
 
-// Función auxiliar para obtener el content type basado en la extensión del archivo
 function getContentTypeFromFileName(fileName) {
   if (!fileName) return 'application/octet-stream';
-  
+
   const extension = fileName.toLowerCase().split('.').pop();
   const contentTypes = {
-    // Imágenes
     'jpg': 'image/jpeg',
     'jpeg': 'image/jpeg',
     'png': 'image/png',
     'gif': 'image/gif',
     'webp': 'image/webp',
     'bmp': 'image/bmp',
-    
-    // Videos
+
     'mp4': 'video/mp4',
     'avi': 'video/x-msvideo',
     'mov': 'video/quicktime',
     'wmv': 'video/x-ms-wmv',
     'flv': 'video/x-flv',
     'webm': 'video/webm',
-    
-    // Audio
+
     'mp3': 'audio/mpeg',
     'wav': 'audio/wav',
     'ogg': 'audio/ogg',
     'm4a': 'audio/mp4',
     'aac': 'audio/aac',
-    
-    // Documentos
+
     'pdf': 'application/pdf',
     'doc': 'application/msword',
     'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -353,6 +370,6 @@ function getContentTypeFromFileName(fileName) {
     'txt': 'text/plain',
     'rtf': 'application/rtf'
   };
-  
+
   return contentTypes[extension] || 'application/octet-stream';
 }
